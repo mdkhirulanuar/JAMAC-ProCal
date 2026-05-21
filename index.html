@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="JAMAC MeterCalc Universal v3.3.1 - Offline-first meter calculator for CT/VT multiplier, pulse-energy conversion, accuracy test, maximum demand and OCR-assisted nameplate extraction." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MeterCalc" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+  <title>JAMAC MeterCalc Universal v3.3.1</title>
+</head>
+<body>
+  <noscript>
+    <div class="noscript">This app requires JavaScript to run.</div>
+  </noscript>
+
+  <div id="splash" class="splash" aria-hidden="true">
+    <div class="splash-card">
+      <div class="splash-icon">⚡</div>
+      <h1>JAMAC MeterCalc</h1>
+      <p>Universal Field Calculator <strong>v3.3.1</strong></p>
+      <div class="loader"><span></span></div>
+    </div>
+  </div>
+
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <div class="brand" onclick="UI.switchTab('calculatorPanel')" role="button" tabindex="0" aria-label="Go to calculator">
+        <span class="brand-mark">⚡</span>
+        <span>
+          <strong>JAMAC MeterCalc</strong>
+          <small>Universal v3.3.1</small>
+        </span>
+      </div>
+      <div class="top-actions">
+        <span id="offlineBadge" class="status-pill online">Online</span>
+        <button class="icon-btn" id="installBtn" hidden title="Install app">⬇️</button>
+        <button class="icon-btn" onclick="UI.toggleLanguage()" title="Tukar bahasa / Change language"><span id="langIcon">BM</span></button>
+        <button class="icon-btn" onclick="UI.toggleTheme()" title="Theme"><span id="themeIcon">🌙</span></button>
+        <button class="icon-btn danger" onclick="UI.confirmReset()" title="Reset current form">↺</button>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Main navigation">
+      <button class="tab active" data-tab="calculatorPanel" onclick="UI.switchTab('calculatorPanel')"><span>🔌</span><small data-i18n="tabCalculator">Kalkulator</small></button>
+      <button class="tab" data-tab="energyPanel" onclick="UI.switchTab('energyPanel')"><span>🔢</span><small data-i18n="tabEnergy">Tenaga</small></button>
+      <button class="tab" data-tab="accuracyPanel" onclick="UI.switchTab('accuracyPanel')"><span>📊</span><small data-i18n="tabAccuracy">Accuracy</small></button>
+      <button class="tab" data-tab="demandPanel" onclick="UI.switchTab('demandPanel')"><span>🕐</span><small data-i18n="tabDemand">MD</small></button>
+      <button class="tab" data-tab="scanPanel" onclick="UI.switchTab('scanPanel')"><span>📷</span><small data-i18n="tabScan">Scan</small></button>
+      <button class="tab" data-tab="historyPanel" onclick="UI.switchTab('historyPanel')"><span>📋</span><small data-i18n="tabHistory">Sejarah</small></button>
+      <button class="tab" data-tab="referencePanel" onclick="UI.switchTab('referencePanel')"><span>📚</span><small data-i18n="tabReference">Rujukan</small></button>
+    </nav>
+
+    <main class="main">
+      <section id="calculatorPanel" class="panel active">
+        <div class="panel-title">
+          <div><h2 data-i18n="calculatorTitle">Meter Multiplier Calculator</h2><p data-i18n="calculatorDesc">Kira multiplier CT/VT dan constant setara primary-side.</p></div>
+          <span class="badge">Core</span>
+        </div>
+
+        <div class="segmented" role="group" aria-label="Calculator mode">
+          <button class="segment active" data-calc-mode="direct" onclick="Calculator.setMode('direct')">DIRECT</button>
+          <button class="segment" data-calc-mode="ct" onclick="Calculator.setMode('ct')">CT</button>
+          <button class="segment" data-calc-mode="ctvt" onclick="Calculator.setMode('ctvt')">CT + VT</button>
+        </div>
+
+        <div class="grid two">
+          <label class="field"><span>Meter Constant Active <em>Nameplate</em></span><div class="input-unit"><input id="meterConstActive" type="number" inputmode="decimal" min="0" step="any" value="1000" /><b>imp/kWh</b></div></label>
+          <label class="field"><span>Meter Constant Reactive <em>Nameplate</em></span><div class="input-unit"><input id="meterConstReactive" type="number" inputmode="decimal" min="0" step="any" value="1000" /><b>imp/kvarh</b></div></label>
+          <label class="field"><span data-i18n="supplyType">Supply Type</span><select id="supplyType"><option value="1P2W">1 Phase 2 Wire</option><option value="3P3W">3 Phase 3 Wire</option><option value="3P4W" selected>3 Phase 4 Wire</option></select></label>
+          <label class="field"><span data-i18n="meterClass">Meter Class</span><select id="meterClass"><option value="0.2S">Class 0.2S</option><option value="0.5S">Class 0.5S</option><option value="0.5">Class 0.5</option><option value="1" selected>Class 1</option><option value="2">Class 2</option></select></label>
+        </div>
+
+        <div id="ctFields" class="subsection" hidden>
+          <h3>Current Transformer</h3>
+          <div class="grid two">
+            <label class="field"><span>CT Primary <em>A</em></span><input id="ctPrimary" type="number" inputmode="decimal" min="0" step="any" placeholder="800" /></label>
+            <label class="field"><span>CT Secondary <em>A</em></span><input id="ctSecondary" type="number" inputmode="decimal" min="0" step="any" value="5" /></label>
+          </div>
+          <div class="inline-result"><span>CT Ratio</span><strong id="ctRatioLive">-</strong></div>
+        </div>
+
+        <div id="vtFields" class="subsection" hidden>
+          <h3>Voltage Transformer</h3>
+          <div class="grid two">
+            <label class="field"><span>VT Primary <em>V</em></span><input id="vtPrimary" type="number" inputmode="decimal" min="0" step="any" placeholder="11000" /></label>
+            <label class="field"><span>VT Secondary <em>V</em></span><input id="vtSecondary" type="number" inputmode="decimal" min="0" step="any" value="110" /></label>
+          </div>
+          <div class="inline-result"><span>VT Ratio</span><strong id="vtRatioLive">-</strong></div>
+        </div>
+
+        <div id="calculatorWarnings" class="warnings" hidden></div>
+        <button class="primary-btn" onclick="Calculator.calculate()">🔢 <span data-i18n="calculate">Calculate</span></button>
+        <div id="calculatorResult" class="result-zone" hidden></div>
+      </section>
+
+      <section id="energyPanel" class="panel">
+        <div class="panel-title"><div><h2 data-i18n="energyTitle">Pulse ↔ Energy Calculator</h2><p data-i18n="energyDesc">Gunakan meter nameplate constant. Jangan masukkan calculated primary constant jika multiplier juga digunakan.</p></div><span class="badge">v3.3</span></div>
+        <div class="formula-note"><strong>Formula:</strong> Primary/Billing Energy = Pulse / Meter Constant × Multiplier. Secondary/Raw Energy = Pulse / Meter Constant.</div>
+        <div class="grid two">
+          <label class="field"><span data-i18n="mode">Mode</span><select id="energyMode" onchange="Calculator.updateEnergyMode()"><option value="pulseToEnergy">Pulse → Energy</option><option value="energyToPulse">Energy → Pulse</option></select></label>
+          <label class="field"><span data-i18n="unit">Unit</span><select id="energyUnit"><option value="kWh">kWh</option><option value="MWh">MWh</option><option value="kvarh">kvarh</option></select></label>
+          <label class="field"><span>Energy / Reading Basis</span><select id="energyBasis"><option value="primary" selected>Primary / Billing Energy - apply multiplier</option><option value="secondary">Secondary / Raw Meter Energy - no multiplier</option></select></label>
+          <label id="energyPulseCountWrap" class="field"><span>Pulse Count</span><input id="energyPulseCount" type="number" inputmode="decimal" min="0" step="any" placeholder="500" /></label>
+          <label id="energyValueWrap" class="field" hidden><span>Energy Value</span><input id="energyValue" type="number" inputmode="decimal" min="0" step="any" placeholder="100" /></label>
+          <label class="field"><span>Meter Constant <em>imp/unit</em></span><input id="energyPulseConst" type="number" inputmode="decimal" min="0" step="any" value="1000" /></label>
+          <label class="field"><span>Multiplier</span><input id="energyMultiplier" type="number" inputmode="decimal" min="0" step="any" value="1" /></label>
+        </div>
+        <button class="primary-btn" onclick="Calculator.calculateEnergy()">⚡ <span data-i18n="calculate">Calculate</span></button>
+        <div id="energyResult" class="result-zone" hidden></div>
+      </section>
+
+      <section id="accuracyPanel" class="panel">
+        <div class="panel-title"><div><h2 data-i18n="accuracyTitle">Accuracy Test v3.3</h2><p data-i18n="accuracyDesc">Dibahagikan kepada Register Comparison dan Pulse Output Test supaya formula tidak bercampur.</p></div><span class="badge warning">Validated UI</span></div>
+        <div class="warning-box"><strong>Important:</strong> Confirm whether readings are primary-side or secondary-side before applying multiplier. This module is a calculation aid and must follow your official SOP for audit use.</div>
+        <div class="segmented">
+          <button class="segment active" data-acc-mode="register" onclick="Accuracy.setMode('register')">Register Comparison</button>
+          <button class="segment" data-acc-mode="pulse" onclick="Accuracy.setMode('pulse')">Pulse Output Test</button>
+        </div>
+
+        <div class="grid two">
+          <label class="field"><span>Meter Class / Tolerance</span><select id="accClass" onchange="Accuracy.syncTolerance()"><option value="0.2">Class 0.2S ±0.2%</option><option value="0.5">Class 0.5 / 0.5S ±0.5%</option><option value="1" selected>Class 1 ±1.0%</option><option value="2">Class 2 ±2.0%</option><option value="custom">Custom</option></select></label>
+          <label class="field"><span>Tolerance %</span><input id="accTolerance" type="number" inputmode="decimal" min="0" step="any" value="1" /></label>
+          <label class="field"><span>Reference Energy</span><input id="accReferenceEnergy" type="number" inputmode="decimal" min="0" step="any" placeholder="10.000" /></label>
+          <label class="field"><span>Unit</span><select id="accUnit"><option value="kWh">kWh</option><option value="kvarh">kvarh</option><option value="MWh">MWh</option></select></label>
+          <label class="field"><span>Reference Energy Basis</span><select id="accReferenceBasis"><option value="primary" selected>Primary / Billing Reference</option><option value="secondary">Secondary / Raw Reference</option></select></label>
+          <label class="field"><span>Reading / Pulse Basis</span><select id="accReadingBasis"><option value="primary" selected>Primary / Billing - no extra multiplier</option><option value="secondary">Secondary / Raw - apply multiplier</option></select></label>
+          <label class="field"><span>CT/VT Multiplier <em>used only when basis is Secondary/Raw</em></span><input id="accBasisMultiplier" type="number" inputmode="decimal" min="0" step="any" value="1" /></label>
+        </div>
+
+        <div id="registerModeFields" class="subsection">
+          <h3>Register Comparison</h3>
+          <div class="formula-note"><strong>Formula:</strong> Error % = ((Meter Difference - Reference Energy) / Reference Energy) × 100</div>
+          <div class="grid two">
+            <label class="field"><span>Meter Start Reading</span><input id="accStartReading" type="number" inputmode="decimal" step="any" placeholder="1000.000" /></label>
+            <label class="field"><span>Meter End Reading</span><input id="accEndReading" type="number" inputmode="decimal" step="any" placeholder="1010.000" /></label>
+          </div>
+        </div>
+
+        <div id="pulseModeFields" class="subsection" hidden>
+          <h3>Pulse Output Test</h3>
+          <div class="formula-note"><strong>Formula:</strong> Meter Energy = Pulse Count / Meter Constant × Multiplier. Error % = ((Meter Energy - Reference Energy) / Reference Energy) × 100</div>
+          <div class="grid two">
+            <label class="field"><span>MUT Pulse Count</span><input id="accPulseCount" type="number" inputmode="decimal" min="0" step="any" placeholder="10000" /></label>
+            <label class="field"><span>Meter Constant <em>imp/unit</em></span><input id="accPulseConst" type="number" inputmode="decimal" min="0" step="any" value="1000" /></label>
+            <label class="field"><span>Pulse Multiplier <em>normally same as CT/VT multiplier</em></span><input id="accMultiplier" type="number" inputmode="decimal" min="0" step="any" value="1" /></label>
+          </div>
+        </div>
+
+        <label class="field"><span>Remarks</span><textarea id="accRemarks" rows="3" placeholder="Optional notes"></textarea></label>
+        <button class="primary-btn" onclick="Accuracy.calculate()">📊 Calculate Accuracy</button>
+        <div id="accuracyResult" class="result-zone" hidden></div>
+      </section>
+
+      <section id="demandPanel" class="panel">
+        <div class="panel-title"><div><h2 data-i18n="demandTitle">Maximum Demand Calculator</h2><p data-i18n="demandDesc">v3.3 supports 15/30/60/custom minute interval.</p></div><span class="badge">Updated</span></div>
+        <div class="formula-note"><strong>Formula:</strong> Energy = Pulse / Meter Constant × Multiplier. MD = Energy / (Interval Minutes / 60).</div>
+        <div class="grid two">
+          <label class="field"><span>Pulse Count During Interval</span><input id="mdPulseCount" type="number" inputmode="decimal" min="0" step="any" placeholder="500" /></label>
+          <label class="field"><span>Meter Constant <em>imp/kWh</em></span><input id="mdPulseConst" type="number" inputmode="decimal" min="0" step="any" value="1000" /></label>
+          <label class="field"><span>Multiplier</span><input id="mdMultiplier" type="number" inputmode="decimal" min="0" step="any" value="1" /></label>
+          <label class="field"><span>Energy Basis</span><select id="mdBasis"><option value="primary" selected>Primary / Billing Energy - apply multiplier</option><option value="secondary">Secondary / Raw Energy - no multiplier</option></select></label>
+          <label class="field"><span>Demand Interval</span><select id="mdInterval" onchange="Calculator.updateDemandInterval()"><option value="15">15 minutes</option><option value="30" selected>30 minutes</option><option value="60">60 minutes</option><option value="custom">Custom</option></select></label>
+          <label id="mdCustomIntervalWrap" class="field" hidden><span>Custom Interval Minutes</span><input id="mdCustomInterval" type="number" inputmode="decimal" min="0" step="any" placeholder="20" /></label>
+        </div>
+        <button class="primary-btn" onclick="Calculator.calculateDemand()">🕐 Calculate MD</button>
+        <div id="demandResult" class="result-zone" hidden></div>
+      </section>
+
+      <section id="scanPanel" class="panel">
+        <div class="panel-title"><div><h2 data-i18n="scanTitle">OCR Meter Nameplate Scan</h2><p data-i18n="scanDesc">OCR assists extraction only. User must review values before applying.</p></div><span class="badge warning">Review Required</span></div>
+        <div class="warning-box">OCR cannot reliably verify CT Primary or VT Primary from meter nameplate. Always check CT/VT nameplate, SLD, billing system or commissioning records.</div>
+        <div class="file-drop" onclick="document.getElementById('scanFile').click()">
+          <input id="scanFile" type="file" accept="image/*" capture="environment" hidden onchange="Scanner.loadFile(event)" />
+          <strong>📷 Upload / Take Photo</strong>
+          <small>JPG, PNG, WebP</small>
+        </div>
+        <img id="scanPreview" class="scan-preview" alt="Meter preview" hidden />
+        <button id="scanBtn" class="primary-btn" onclick="Scanner.runOCR()" disabled>Run OCR</button>
+        <div id="scanProgress" class="progress" hidden><span></span></div>
+        <div id="scanResult" class="result-zone" hidden></div>
+      </section>
+
+      <section id="historyPanel" class="panel">
+        <div class="panel-title"><div><h2 data-i18n="historyTitle">History & Backup</h2><p data-i18n="historyDesc">Local records stored in browser. Export JSON regularly.</p></div><span id="historyCount" class="badge">0</span></div>
+        <div class="action-row">
+          <button class="secondary-btn" onclick="History.exportJSON()">⬇️ Export JSON</button>
+          <button class="secondary-btn" onclick="History.exportCSV()">⬇️ Export CSV</button>
+          <button class="secondary-btn" onclick="document.getElementById('importHistoryFile').click()">⬆️ Import JSON</button>
+          <input id="importHistoryFile" type="file" accept="application/json,.json" hidden onchange="History.importJSON(event)" />
+          <button class="secondary-btn danger" onclick="History.clear()">🗑️ Clear</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+
+      <section id="referencePanel" class="panel">
+        <div class="panel-title"><div><h2 data-i18n="referenceTitle">Reference & Notes</h2><p>Formula notes, assumptions and common mistakes.</p></div><span class="badge">Guide</span></div>
+        <div class="accordion">
+          <details open><summary>Multiplier Formula</summary><p>DIRECT: M = 1. CT: M = CT Primary / CT Secondary. CT+VT: M = CT Ratio × VT Ratio.</p></details>
+          <details><summary>Pulse Constant</summary><p>Primary-side equivalent constant = Meter nameplate constant / Total multiplier. Use this only when a primary-side pulse constant is required.</p></details>
+          <details><summary>Energy Formula</summary><p>Energy = Pulse / Meter Constant × Multiplier. Meter Constant must normally be the meter nameplate constant, e.g. imp/kWh or imp/kvarh.</p></details>
+          <details><summary>Accuracy Test Assumption</summary><p>Register Comparison compares MUT register difference against reference energy. Pulse Output Test converts MUT pulse into energy before comparison.</p></details>
+          <details><summary>Common Mistakes</summary><ul><li>Do not double-apply multiplier.</li><li>Do not mix primary-side readings with secondary-side constants without conversion.</li><li>Verify CT secondary is usually 1A or 5A.</li><li>Verify VT secondary according to site design.</li></ul></details>
+          <details><summary>Version</summary><p>JAMAC MeterCalc Universal v3.3.1. Offline-first static PWA for GitHub Pages.</p></details>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
+  <script src="js/app.js" defer></script>
+</body>
+</html>
