@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0f766e" />
-  <meta name="description" content="JAMAC ProCal v3.3.2 - professional CT/VT, meter constant, pulse energy, accuracy and MD calculator." />
-  <title>JAMAC ProCal v3.3.2</title>
+  <meta name="description" content="JAMAC ProCal v3.3.2-r1 - direct, CT, CT/PT meter calculator with improved OCR and BM/EN language support." />
+  <title>JAMAC ProCal v3.3.2-r1</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
@@ -20,7 +20,7 @@
         <span class="brand-mark" aria-hidden="true">J</span>
         <span>
           <strong>JAMAC ProCal</strong>
-          <small>v3.3.2 Stabilization</small>
+          <small data-i18n="appVersion">v3.3.2-r1 Stabilization</small>
         </span>
       </button>
       <div class="status-line" aria-live="polite">
@@ -31,47 +31,57 @@
 
     <div class="header-actions">
       <button class="btn ghost" type="button" id="installBtn" hidden>Install</button>
-      <button class="btn ghost" type="button" id="langToggle" aria-label="Toggle language">BM</button>
+      <button class="btn ghost" type="button" id="langToggle" class="btn ghost language-chip" aria-label="Toggle language">BM</button>
       <button class="btn ghost" type="button" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
     </div>
   </header>
 
   <nav class="tab-nav" aria-label="Main modules" role="tablist">
-    <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-calculator" id="tab-calculator" data-tab="calculator">Kalkulator</button>
-    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-energy" id="tab-energy" data-tab="energy">Tenaga</button>
-    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-accuracy" id="tab-accuracy" data-tab="accuracy">Ketepatan</button>
-    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-md" id="tab-md" data-tab="md">MD</button>
-    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-scan" id="tab-scan" data-tab="scan">Imbas</button>
-    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-history" id="tab-history" data-tab="history">Sejarah</button>
-    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-reference" id="tab-reference" data-tab="reference">Rujukan</button>
+    <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-calculator" id="tab-calculator" data-tab="calculator" data-i18n="tabCalculator">Kalkulator</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-energy" id="tab-energy" data-tab="energy" data-i18n="tabEnergy">Tenaga</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-accuracy" id="tab-accuracy" data-tab="accuracy" data-i18n="tabAccuracy">Ketepatan</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-md" id="tab-md" data-tab="md" data-i18n="tabMD">MD</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-scan" id="tab-scan" data-tab="scan" data-i18n="tabScan">Imbas</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-history" id="tab-history" data-tab="history" data-i18n="tabHistory">Sejarah</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="panel-reference" id="tab-reference" data-tab="reference" data-i18n="tabReference">Rujukan</button>
   </nav>
 
   <main id="mainContent" class="container">
     <section id="panel-calculator" class="panel active" role="tabpanel" aria-labelledby="tab-calculator">
       <div class="hero-card">
         <div>
-          <p class="eyebrow">CT / VT / Meter Constant</p>
-          <h1>Professional meter calculation helper</h1>
-          <p>Use nameplate secondary meter constant unless the field explicitly states otherwise.</p>
+          <p class="eyebrow" data-i18n="mainEyebrow">Direct / CT / CT-PT / Meter Constant</p>
+          <h1 data-i18n="mainTitle">Pembantu kiraan meter profesional</h1>
+          <p data-i18n="mainDesc">Pilih jenis meter dahulu. Direct meter menggunakan multiplier 1; CT/CT-PT menggunakan ratio yang dipilih.</p>
         </div>
         <div class="hero-actions">
-          <button class="btn primary" type="button" data-action="calculate-main">Calculate</button>
-          <button class="btn secondary" type="button" data-action="clear-main">Clear</button>
+          <button class="btn primary" type="button" data-action="calculate-main" data-i18n="calculate">Kira</button>
+          <button class="btn secondary" type="button" data-action="clear-main" data-i18n="clear">Kosongkan</button>
         </div>
       </div>
 
       <div class="grid two">
         <article class="card">
-          <h2>Input</h2>
+          <h2 data-i18n="input">Input</h2>
+          <div class="connection-banner">
+            <label data-i18n="meterTypeLabel">Jenis Meter
+              <select id="mainMeterType" data-meter-type>
+                <option value="direct" data-i18n="meterDirect">Direct Meter</option>
+                <option value="ct" data-i18n="meterCT" selected>CT Operated Meter</option>
+                <option value="ctpt" data-i18n="meterCTPT">CT/PT Operated Meter</option>
+              </select>
+            </label>
+            <div class="assumption-box"><strong data-i18n="connectionRuleTitle">Connection rule</strong><br><span data-i18n="connectionRuleText">Direct = multiplier 1. CT = CT ratio. CT/PT = CT ratio × VT ratio.</span></div>
+          </div>
           <div class="form-grid">
-            <label>Supply Type
+            <label data-i18n="supplyType">Supply Type
               <select id="supplyType">
                 <option value="1P2W">1P2W</option>
                 <option value="3P3W">3P3W</option>
                 <option value="3P4W" selected>3P4W</option>
               </select>
             </label>
-            <label>CT Preset
+            <label data-field-group="ct" data-i18n="ctPresetLabel">CT Preset
               <select id="ctPreset" data-preset="ct">
                 <option value="custom">Manual / Custom</option>
                 <option value="100/5">100/5</option><option value="200/5">200/5</option><option value="300/5">300/5</option>
@@ -80,9 +90,9 @@
                 <option value="100/1">100/1</option><option value="200/1">200/1</option><option value="400/1">400/1</option><option value="800/1">800/1</option><option value="1000/1">1000/1</option>
               </select>
             </label>
-            <label>CT Primary (A)<input id="ctPrimary" type="number" min="0" step="0.001" value="800" inputmode="decimal" /></label>
-            <label>CT Secondary (A)<input id="ctSecondary" type="number" min="0" step="0.001" value="5" inputmode="decimal" /></label>
-            <label>VT Preset
+            <label data-field-group="ct" data-i18n="ctPrimaryLabel">CT Primary (A)<input id="ctPrimary" type="number" min="0" step="0.001" value="800" inputmode="decimal" /></label>
+            <label data-field-group="ct" data-i18n="ctSecondaryLabel">CT Secondary (A)<input id="ctSecondary" type="number" min="0" step="0.001" value="5" inputmode="decimal" /></label>
+            <label data-field-group="vt" data-i18n="vtPresetLabel">VT Preset
               <select id="vtPreset" data-preset="vt">
                 <option value="custom">Manual / Custom</option>
                 <option value="1/1">No VT / Direct 1:1</option>
@@ -92,10 +102,10 @@
                 <option value="33000/110">33000/110</option>
               </select>
             </label>
-            <label>VT Primary (V)<input id="vtPrimary" type="number" min="0" step="0.001" value="1" inputmode="decimal" /></label>
-            <label>VT Secondary (V)<input id="vtSecondary" type="number" min="0" step="0.001" value="1" inputmode="decimal" /></label>
-            <label>Active Constant (imp/kWh)<input id="activeConst" type="number" min="0" step="0.001" value="1000" inputmode="decimal" /></label>
-            <label>Reactive Constant (imp/kvarh)<input id="reactiveConst" type="number" min="0" step="0.001" value="1000" inputmode="decimal" /></label>
+            <label data-field-group="vt" data-i18n="vtPrimaryLabel">VT Primary (V)<input id="vtPrimary" type="number" min="0" step="0.001" value="1" inputmode="decimal" /></label>
+            <label data-field-group="vt" data-i18n="vtSecondaryLabel">VT Secondary (V)<input id="vtSecondary" type="number" min="0" step="0.001" value="1" inputmode="decimal" /></label>
+            <label data-i18n="activeConstLabel">Active Constant (imp/kWh)<input id="activeConst" type="number" min="0" step="0.001" value="1000" inputmode="decimal" /></label>
+            <label data-i18n="reactiveConstLabel">Reactive Constant (imp/kvarh)<input id="reactiveConst" type="number" min="0" step="0.001" value="1000" inputmode="decimal" /></label>
           </div>
         </article>
 
@@ -114,8 +124,17 @@
       <div class="grid two">
         <article class="card">
           <h2>Input</h2>
-          <div class="assumption-box">
+          <div class="assumption-box" data-i18n="energyAssumption">
             Meter constant must be the meter nameplate constant, normally imp/kWh or imp/kvarh. MWh is converted internally to/from kWh.
+          </div>
+          <div class="connection-banner">
+            <label data-i18n="meterTypeLabel">Jenis Meter
+              <select id="energyMeterType" data-meter-type>
+                <option value="direct" data-i18n="meterDirect">Direct Meter</option>
+                <option value="ct" data-i18n="meterCT" selected>CT Operated Meter</option>
+                <option value="ctpt" data-i18n="meterCTPT">CT/PT Operated Meter</option>
+              </select>
+            </label>
           </div>
           <div class="form-grid">
             <label>Mode<select id="energyMode"><option value="pulseToEnergy">Pulse to Energy</option><option value="energyToPulse">Energy to Pulse</option></select></label>
@@ -123,7 +142,7 @@
             <label>Pulse Count<input id="pulseCount" type="number" min="0" step="0.001" value="500" inputmode="decimal" /></label>
             <label>Energy Value<input id="energyValue" type="number" min="0" step="0.001" value="80" inputmode="decimal" /></label>
             <label>Meter Constant<input id="energyConst" type="number" min="0" step="0.001" value="1000" inputmode="decimal" /></label>
-            <label>CT/VT Multiplier<input id="energyMultiplier" type="number" min="0" step="0.001" value="160" inputmode="decimal" /></label>
+            <label data-multiplier-field data-i18n="multiplierLabel">CT/VT Multiplier<input id="energyMultiplier" type="number" min="0" step="0.001" value="160" inputmode="decimal" /></label>
             <label>Value Basis<select id="energyBasis"><option value="secondary" selected>Raw meter pulse/nameplate constant - apply multiplier</option><option value="primary">Already primary/billing value - no multiplier</option></select></label>
           </div>
         </article>
@@ -139,13 +158,22 @@
       <div class="grid two">
         <article class="card">
           <h2>Input</h2>
-          <div class="assumption-box warning-soft">Do not double-apply CT/VT multiplier. Billing register normally already includes multiplier. Raw pulse/nameplate constant normally needs multiplier.</div>
+          <div class="assumption-box warning-soft" data-i18n="accuracyAssumption">Do not double-apply CT/VT multiplier. Billing register normally already includes multiplier. Raw pulse/nameplate constant normally needs multiplier.</div>
+          <div class="connection-banner">
+            <label data-i18n="meterTypeLabel">Jenis Meter
+              <select id="accuracyMeterType" data-meter-type>
+                <option value="direct" data-i18n="meterDirect">Direct Meter</option>
+                <option value="ct" data-i18n="meterCT" selected>CT Operated Meter</option>
+                <option value="ctpt" data-i18n="meterCTPT">CT/PT Operated Meter</option>
+              </select>
+            </label>
+          </div>
           <div class="form-grid">
             <label>Test Method<select id="accuracyMethod"><option value="register">Register Comparison</option><option value="pulse">Pulse Output Test</option></select></label>
             <label>Reference Energy<input id="referenceEnergy" type="number" min="0" step="0.0001" value="80" inputmode="decimal" /></label>
             <label>Reference Basis<select id="referenceBasis"><option value="primary" selected>Primary / billing reference</option><option value="secondary">Secondary / raw reference - apply multiplier</option></select></label>
             <label>Energy Unit<select id="accuracyUnit"><option value="kWh">kWh</option><option value="MWh">MWh</option><option value="kvarh">kvarh</option></select></label>
-            <label>CT/VT Multiplier<input id="accuracyMultiplier" type="number" min="0" step="0.001" value="160" inputmode="decimal" /></label>
+            <label data-multiplier-field data-i18n="multiplierLabel">CT/VT Multiplier<input id="accuracyMultiplier" type="number" min="0" step="0.001" value="160" inputmode="decimal" /></label>
             <label>Tolerance<select id="accuracyTolerance"><option value="0.2">Class 0.2S ±0.2%</option><option value="0.5" selected>Class 0.5/0.5S ±0.5%</option><option value="1">Class 1 ±1.0%</option><option value="2">Class 2 ±2.0%</option><option value="custom">Custom</option></select></label>
             <label>Custom Tolerance (%)<input id="customTolerance" type="number" min="0" step="0.001" value="0.5" inputmode="decimal" /></label>
           </div>
@@ -178,11 +206,20 @@
       <div class="grid two">
         <article class="card">
           <h2>Input</h2>
-          <div class="assumption-box">Calculated interval demand from active pulse count. This is not a replacement for official meter registered MD unless verified by SOP.</div>
+          <div class="assumption-box" data-i18n="mdAssumption">Calculated interval demand from active pulse count. This is not a replacement for official meter registered MD unless verified by SOP.</div>
+          <div class="connection-banner">
+            <label data-i18n="meterTypeLabel">Jenis Meter
+              <select id="mdMeterType" data-meter-type>
+                <option value="direct" data-i18n="meterDirect">Direct Meter</option>
+                <option value="ct" data-i18n="meterCT" selected>CT Operated Meter</option>
+                <option value="ctpt" data-i18n="meterCTPT">CT/PT Operated Meter</option>
+              </select>
+            </label>
+          </div>
           <div class="form-grid">
             <label>Pulse Count<input id="mdPulse" type="number" min="0" step="0.001" value="500" inputmode="decimal" /></label>
             <label>Meter Constant (imp/kWh)<input id="mdConst" type="number" min="0" step="0.001" value="1000" inputmode="decimal" /></label>
-            <label>CT/VT Multiplier<input id="mdMultiplier" type="number" min="0" step="0.001" value="160" inputmode="decimal" /></label>
+            <label data-multiplier-field data-i18n="multiplierLabel">CT/VT Multiplier<input id="mdMultiplier" type="number" min="0" step="0.001" value="160" inputmode="decimal" /></label>
             <label>Interval (minutes)<select id="mdInterval"><option value="15">15</option><option value="30" selected>30</option><option value="60">60</option></select></label>
             <label>Pulse Basis<select id="mdBasis"><option value="secondary" selected>Meter pulse/nameplate constant - apply multiplier</option><option value="primary">Already primary energy - no multiplier</option></select></label>
           </div>
@@ -192,20 +229,46 @@
     </section>
 
     <section id="panel-scan" class="panel" role="tabpanel" aria-labelledby="tab-scan" hidden>
-      <div class="module-header"><div><p class="eyebrow">OCR Helper</p><h1>Scan meter nameplate</h1></div></div>
+      <div class="module-header"><div><p class="eyebrow" data-i18n="scanEyebrow">OCR / Reading Assist</p><h1 data-i18n="scanTitle">Imbas nameplate atau paparan meter</h1></div></div>
       <div class="grid two">
         <article class="card">
-          <h2>Image</h2>
-          <div id="fileDrop" class="file-drop" role="button" tabindex="0" aria-label="Upload meter nameplate image">
-            <input id="imageInput" type="file" accept="image/*" hidden />
-            <strong>Drop image here or click to upload</strong>
-            <span>OCR is loaded only when needed. Always verify extracted values.</span>
+          <h2 data-i18n="imageInput">Image</h2>
+          <div class="scan-mode-grid">
+            <label data-i18n="scanModeLabel">Scan Mode
+              <select id="scanMode">
+                <option value="nameplate" data-i18n="scanNameplate">Nameplate OCR</option>
+                <option value="display" data-i18n="scanDisplay">Display Reading OCR</option>
+                <option value="manual" data-i18n="scanManual">Manual Verified Reading</option>
+              </select>
+            </label>
+            <label data-i18n="manualReadingLabel">Manual Reading
+              <input id="manualReading" type="number" step="0.0001" inputmode="decimal" placeholder="12345.67" />
+            </label>
           </div>
-          <img id="scanPreview" class="preview hidden" alt="Uploaded meter nameplate preview" />
-          <div class="button-row"><button class="btn primary" type="button" data-action="run-ocr">Run OCR</button><button class="btn secondary" type="button" data-action="clear-scan">Clear</button></div>
+          <div id="fileDrop" class="file-drop" role="button" tabindex="0" aria-label="Upload meter image">
+            <input id="imageInput" type="file" accept="image/*" capture="environment" hidden />
+            <strong data-i18n="dropImage">Drop image here or click to upload</strong>
+            <span data-i18n="ocrVerify">Crop display area for better meter-reading OCR. Always verify before applying values.</span>
+          </div>
+          <img id="scanPreview" class="preview hidden" alt="Uploaded meter preview" />
+          <div id="displayOcrControls" class="sub-panel hidden-soft">
+            <h3 data-i18n="displayControls">Display OCR Controls</h3>
+            <p class="small-note" data-i18n="displayControlsNote">Use percentage crop to isolate only the LCD/register window, then apply threshold for clearer digits.</p>
+            <div class="control-grid">
+              <label>Left %<input id="cropLeft" type="number" min="0" max="95" step="1" value="10"></label>
+              <label>Top %<input id="cropTop" type="number" min="0" max="95" step="1" value="35"></label>
+              <label>Width %<input id="cropWidth" type="number" min="5" max="100" step="1" value="80"></label>
+              <label>Height %<input id="cropHeight" type="number" min="5" max="100" step="1" value="25"></label>
+              <label>Contrast<input id="ocrContrast" type="number" min="0.5" max="4" step="0.1" value="1.8"></label>
+              <label>Threshold<input id="ocrThreshold" type="number" min="0" max="255" step="1" value="150"></label>
+              <label>Scale<input id="ocrScale" type="number" min="1" max="4" step="1" value="3"></label>
+            </div>
+            <div class="canvas-wrap"><canvas id="ocrCanvas" width="1" height="1" aria-label="Processed OCR image preview"></canvas></div>
+          </div>
+          <div class="button-row"><button class="btn secondary" type="button" data-action="preview-ocr" data-i18n="previewCrop">Preview Crop</button><button class="btn primary" type="button" data-action="run-ocr" data-i18n="runOCR">Run OCR</button><button class="btn secondary" type="button" data-action="use-manual-reading" data-i18n="useManual">Use Manual Reading</button><button class="btn secondary" type="button" data-action="clear-scan" data-i18n="clear">Kosongkan</button></div>
           <p id="ocrStatus" class="muted" aria-live="polite">OCR idle.</p>
         </article>
-        <article class="card result-card" id="scanResult" aria-live="polite"><h2>Extracted Data</h2><p class="muted">No scan yet.</p></article>
+        <article class="card result-card" id="scanResult" aria-live="polite"><h2 data-i18n="extractedData">Extracted Data</h2><p class="muted" data-i18n="noScan">No scan yet.</p></article>
       </div>
     </section>
 
@@ -217,7 +280,7 @@
     <section id="panel-reference" class="panel" role="tabpanel" aria-labelledby="tab-reference" hidden>
       <div class="module-header"><div><p class="eyebrow">Formula Reference</p><h1>Reference</h1></div></div>
       <div class="grid two">
-        <article class="card"><h2>Core formulas</h2><ul class="formula-list"><li><code>CT Ratio = CT Primary ÷ CT Secondary</code></li><li><code>VT Ratio = VT Primary ÷ VT Secondary</code></li><li><code>Multiplier = CT Ratio × VT Ratio</code></li><li><code>Primary Constant = Nameplate Constant ÷ Multiplier</code></li><li><code>Energy = Pulse ÷ Constant × Multiplier</code></li><li><code>MD kW = kWh ÷ (Interval minutes ÷ 60)</code></li><li><code>Error % = (Meter Energy - Reference Energy) ÷ Reference Energy × 100</code></li></ul></article>
+        <article class="card"><h2>Core formulas</h2><ul class="formula-list"><li><code>CT Ratio = CT Primary ÷ CT Secondary</code></li><li><code>VT Ratio = VT Primary ÷ VT Secondary</code></li><li><code>Direct Meter Multiplier = 1</code></li><li><code>CT Meter Multiplier = CT Ratio</code></li><li><code>CT/PT Meter Multiplier = CT Ratio × VT Ratio</code></li><li><code>Primary Constant = Nameplate Constant ÷ Multiplier</code></li><li><code>Energy = Pulse ÷ Constant × Multiplier</code></li><li><code>MD kW = kWh ÷ (Interval minutes ÷ 60)</code></li><li><code>Error % = (Meter Energy - Reference Energy) ÷ Reference Energy × 100</code></li></ul></article>
         <article class="card"><h2>Field notes</h2><div class="assumption-box"><strong>Primary/billing reading:</strong> use no additional multiplier.</div><div class="assumption-box"><strong>Raw meter pulse/nameplate constant:</strong> apply CT/VT multiplier.</div><div class="assumption-box warning-soft"><strong>SOP:</strong> Meter class tolerances and test acceptance must follow your organization/regulator procedure.</div></article>
       </div>
     </section>

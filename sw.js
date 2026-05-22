@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jamac-procal-v3.3.2-cache-1';
+const CACHE_NAME = 'jamac-procal-v3.3.2-r1-cache-1';
 const APP_SHELL = [
   './',
   './index.html',

@@ -1,7 +1,7 @@
 {
   "name": "JAMAC ProCal",
   "short_name": "ProCal",
-  "description": "Professional CT/VT meter, pulse energy, accuracy and maximum demand calculator.",
+  "description": "Direct, CT and CT/PT meter calculator with pulse energy, accuracy, MD, OCR reading assist and BM/EN support.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

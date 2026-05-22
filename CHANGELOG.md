@@ -1,24 +1,24 @@
 # Changelog
 
-## v3.3.2 - Stabilization Release
+## v3.3.2-r1
 
 ### Added
-- Safer basis wording for register comparison and pulse output accuracy test.
-- CT and VT preset selectors.
-- Formula preview output for all major calculators.
-- Warning/confidence messages for high multiplier, low/high constants and primary/secondary basis risk.
-- Print-ready calculation report from result/history detail.
-- PWA PNG icons, maskable icons and Apple touch icon.
-- GitHub Pages Actions workflow.
-- Keyboard-accessible file upload drop zone.
-- Lazy-loaded OCR engine.
-- History detail/delete/print/export/import.
+
+- Direct Meter mode with multiplier fixed to 1.
+- CT Meter and CT/PT Meter connection mode handling.
+- Auto-disable CT/VT fields according to meter type.
+- Meter type support in main calculator, energy conversion, accuracy test, and MD calculation.
+- Display Reading OCR mode with crop percentage, contrast, threshold, scale, and digit-only OCR.
+- Manual verified reading fallback for field use.
+- Wider BM/EN language toggle coverage for key UI text.
+- Updated PWA cache version.
 
 ### Fixed
-- Removed `user-scalable=no` for accessibility.
-- Corrected MWh handling so meter constant remains based on kWh internally.
-- Restricted service worker caching to same-origin app shell.
 
-### Notes
-- OCR values remain advisory and must be manually verified.
-- Tolerance/pass-fail must follow official SOP.
+- Previous v3.3.2 draft did not expose Direct Meter as an explicit workflow.
+- Reduced risk of applying CT/VT multiplier to direct meters.
+- Improved OCR workflow for meter display readings compared with full-image OCR only.
+
+## v3.3.2
+
+- Stabilization release with safer accuracy basis, unit handling, presets, formula preview, PWA icons, history details, print report, and lazy OCR loading.

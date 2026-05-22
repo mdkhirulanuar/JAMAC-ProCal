@@ -1,38 +1,60 @@
-# JAMAC ProCal v3.3.2
+# JAMAC ProCal v3.3.2-r1
 
-Professional static PWA calculator for CT/VT multiplier, meter constant conversion, pulse-energy conversion, accuracy test support, maximum demand, OCR helper and local calculation history.
+Static PWA calculator for Direct, CT-operated, and CT/PT-operated electricity meters.
 
-## What's new in v3.3.2
+## Included modules
 
-- Safer accuracy test basis selection.
-- Correct kWh/MWh/kvarh handling and clearer meter constant labels.
-- CT/VT ratio presets with manual override.
-- Formula preview in calculator results.
-- Warning/confidence system for high multipliers, unusual constants and basis risk.
-- PWA icons, install prompt and update notification.
-- GitHub Pages workflow included.
-- Accessibility fixes: scalable viewport, tab ARIA, live toast, keyboard file upload.
-- History detail view, delete, JSON/CSV export/import and print-ready report.
-- Lazy-loaded OCR engine.
+- Direct Meter mode: multiplier locked to 1.
+- CT Meter mode: multiplier = CT Primary / CT Secondary.
+- CT/PT Meter mode: multiplier = CT Ratio × VT Ratio.
+- Meter constant calculator for active and reactive constants.
+- Pulse ↔ energy conversion with kWh, MWh, and kvarh handling.
+- Register comparison and pulse output accuracy test.
+- Maximum demand calculation from active pulse count and interval.
+- OCR helper:
+  - Nameplate OCR.
+  - Display Reading OCR with crop, contrast, threshold, and digit-only recognition.
+  - Manual verified reading fallback.
+- BM/EN language toggle.
+- Local history with view, delete, JSON/CSV export, import, and print-ready report.
+- PWA manifest, icons, service worker, and GitHub Pages workflow.
 
-## Deploy on GitHub Pages
+## Important calculation rule
 
-1. Upload all files to your repository root.
-2. Commit and push to `main`.
-3. Go to **Settings → Pages**.
-4. Set source to **GitHub Actions**.
-5. The included workflow `.github/workflows/deploy-pages.yml` will publish the static app.
+Direct meter uses multiplier 1.
 
-Alternative: use **Deploy from a branch → main → /root**. The app uses relative paths and works in GitHub Pages subfolders.
+CT meter uses:
 
-## Important calculation assumption
+```text
+Multiplier = CT Primary / CT Secondary
+```
 
-- Nameplate meter constant such as `1000 imp/kWh` is normally a secondary/raw meter constant.
-- Billing/primary register readings usually already include multiplier.
-- Raw pulse count with nameplate constant normally requires CT/VT multiplier.
-- Do not double-apply multiplier.
-- Regulatory acceptance must follow official SOP and approved test equipment procedure.
+CT/PT meter uses:
 
-## Local storage
+```text
+Multiplier = (CT Primary / CT Secondary) × (VT Primary / VT Secondary)
+```
 
-History records are stored in browser `localStorage`. Export JSON/CSV regularly for backup.
+Billing/primary register values normally already include multiplier. Raw meter pulse/nameplate constant normally needs multiplier. Do not double-apply multiplier.
+
+## Deploy to GitHub Pages
+
+1. Copy all files in this folder to the root of your repository.
+2. Commit and push.
+3. Open `Settings → Pages`.
+4. Set source to `GitHub Actions`.
+5. The workflow at `.github/workflows/deploy-pages.yml` will publish the app.
+
+## Local test
+
+Open `index.html` directly in a browser for basic testing.
+
+For formula tests, open:
+
+```text
+tests/formula-tests.html
+```
+
+## OCR note
+
+Display OCR is only an assistive tool. Crop the display area tightly, use threshold/contrast controls, and verify the detected digits manually before using the value in official work.
