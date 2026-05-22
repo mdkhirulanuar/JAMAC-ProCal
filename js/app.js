@@ -1,72 +1,49 @@
 'use strict';
 
-const APP = {
-  name: 'JAMAC MeterCalc Universal',
-  version: '3.3.1',
-  historyKey: 'jamac_metercalc_v33_history',
-  themeKey: 'jamac_metercalc_v33_theme',
-  langKey: 'jamac_metercalc_v33_lang',
-  calcMode: 'direct',
-  accuracyMode: 'register',
-  deferredInstallPrompt: null
-};
+const STORAGE_KEY = 'jamac-procal-v332-history';
+const SETTINGS_KEY = 'jamac-procal-v332-settings';
+const APP_VERSION = '3.3.2';
+let deferredInstallPrompt = null;
+let currentRecord = null;
+let tesseractLoading = null;
+let uploadedImage = null;
 
-const I18N = {
-  ms: {
-    tabCalculator: 'Kalkulator', tabEnergy: 'Tenaga', tabAccuracy: 'Accuracy', tabDemand: 'MD', tabScan: 'Scan', tabHistory: 'Sejarah', tabReference: 'Rujukan',
-    calculatorTitle: 'Meter Multiplier Calculator', calculatorDesc: 'Kira multiplier CT/VT dan constant setara primary-side.', supplyType: 'Jenis Supply', meterClass: 'Class Meter', calculate: 'Kira',
-    energyTitle: 'Pulse ↔ Tenaga', energyDesc: 'Gunakan meter nameplate constant. Jangan masukkan calculated primary constant jika multiplier juga digunakan.', mode: 'Mode', unit: 'Unit',
-    accuracyTitle: 'Accuracy Test v3.3', accuracyDesc: 'Dibahagikan kepada Register Comparison dan Pulse Output Test supaya formula tidak bercampur.',
-    demandTitle: 'Maximum Demand', demandDesc: 'v3.3 menyokong interval 15/30/60/custom minit.', scanTitle: 'OCR Meter Nameplate Scan', scanDesc: 'OCR hanya membantu extraction. Pengguna mesti review sebelum apply.',
-    historyTitle: 'Sejarah & Backup', historyDesc: 'Rekod local disimpan dalam browser. Export JSON secara berkala.', referenceTitle: 'Rujukan & Nota',
-    required: 'Sila masukkan nilai yang sah.', calculated: 'Calculation completed.', saved: 'Saved to history.', copied: 'Copied.', imported: 'Import completed.', cleared: 'History cleared.'
-  },
-  en: {
-    tabCalculator: 'Calculator', tabEnergy: 'Energy', tabAccuracy: 'Accuracy', tabDemand: 'MD', tabScan: 'Scan', tabHistory: 'History', tabReference: 'Reference',
-    calculatorTitle: 'Meter Multiplier Calculator', calculatorDesc: 'Calculate CT/VT multiplier and primary-side equivalent constants.', supplyType: 'Supply Type', meterClass: 'Meter Class', calculate: 'Calculate',
-    energyTitle: 'Pulse ↔ Energy', energyDesc: 'Use the meter nameplate constant. Do not enter calculated primary constant if multiplier is also used.', mode: 'Mode', unit: 'Unit',
-    accuracyTitle: 'Accuracy Test v3.3', accuracyDesc: 'Separated into Register Comparison and Pulse Output Test to avoid mixed formulas.',
-    demandTitle: 'Maximum Demand', demandDesc: 'v3.3 supports 15/30/60/custom minute interval.', scanTitle: 'OCR Meter Nameplate Scan', scanDesc: 'OCR assists extraction only. User must review values before applying.',
-    historyTitle: 'History & Backup', historyDesc: 'Local records are stored in the browser. Export JSON regularly.', referenceTitle: 'Reference & Notes',
-    required: 'Please enter a valid value.', calculated: 'Calculation completed.', saved: 'Saved to history.', copied: 'Copied.', imported: 'Import completed.', cleared: 'History cleared.'
-  }
-};
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
 const Helpers = {
-  $(id) { return document.getElementById(id); },
-  num(id) {
-    const el = this.$(id);
-    if (!el) return NaN;
-    const value = String(el.value || '').replace(/,/g, '').trim();
-    if (value === '') return NaN;
-    return Number(value);
+  number(id) {
+    const value = Number($(id).value);
+    if (!Number.isFinite(value)) throw new Error(`Invalid number: ${id}`);
+    return value;
   },
-  text(id) {
-    const el = this.$(id);
-    return el ? String(el.value || '').trim() : '';
-  },
-  isPositive(value) { return Number.isFinite(value) && value > 0; },
-  isNonNegative(value) { return Number.isFinite(value) && value >= 0; },
-  escape(value) {
+  text(value) {
     return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
   },
-  format(value, digits = 6) {
+  fmt(value, digits = 6) {
     if (!Number.isFinite(value)) return '-';
-    const abs = Math.abs(value);
-    if (abs !== 0 && abs < 0.000001) return value.toExponential(4);
-    return new Intl.NumberFormat('en-MY', { maximumFractionDigits: digits }).format(value);
+    return Number(value.toFixed(digits)).toLocaleString(undefined, { maximumFractionDigits: digits });
   },
-  fixed(value, digits = 4) {
-    if (!Number.isFinite(value)) return '-';
-    return Number(value).toFixed(digits);
+  iso() { return new Date().toISOString(); },
+  displayDate(iso) { return new Date(iso).toLocaleString(); },
+  csv(value) {
+    const safe = String(value ?? '').replace(/"/g, '""');
+    return /^[=+\-@]/.test(safe) ? `"'${safe}"` : `"${safe}"`;
   },
-  timestamp() { return new Date().toISOString(); },
-  dateLabel(iso) {
-    try { return new Date(iso).toLocaleString('en-MY', { dateStyle: 'medium', timeStyle: 'short' }); }
-    catch { return iso; }
+  assertPositive(value, label) {
+    if (!Number.isFinite(value) || value <= 0) throw new Error(`${label} must be more than zero.`);
   },
-  download(filename, mime, content) {
-    const blob = new Blob([content], { type: mime });
+  unitToBaseKWh(value, unit) {
+    if (unit === 'MWh') return value * 1000;
+    return value;
+  },
+  baseKWhToUnit(value, unit) {
+    if (unit === 'MWh') return value / 1000;
+    return value;
+  },
+  constantUnit(unit) { return unit === 'kvarh' ? 'imp/kvarh' : 'imp/kWh'; },
+  download(filename, content, type = 'text/plain') {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -75,532 +52,435 @@ const Helpers = {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  },
-  csvCell(value) {
-    const text = String(value ?? '');
-    const protectedText = /^[=+\-@]/.test(text) ? `'${text}` : text;
-    return `"${protectedText.replace(/"/g, '""')}"`;
   }
 };
 
 const UI = {
   init() {
-    const theme = localStorage.getItem(APP.themeKey) || 'dark';
-    document.documentElement.dataset.theme = theme;
-    Helpers.$('themeIcon').textContent = theme === 'dark' ? '🌙' : '☀️';
+    const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    if (settings.theme) document.documentElement.dataset.theme = settings.theme;
+    $('#themeToggle').textContent = settings.theme === 'dark' ? '☀️' : '🌙';
+    this.bindTabs();
+    this.bindActions();
+    this.bindStatus();
+    History.render();
+  },
+  bindTabs() {
+    $$('.tab').forEach(tab => tab.addEventListener('click', () => this.activateTab(tab.dataset.tab)));
+  },
+  activateTab(name) {
+    $$('.tab').forEach(tab => {
+      const active = tab.dataset.tab === name;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
+    });
+    $$('.panel').forEach(panel => {
+      const active = panel.id === `panel-${name}`;
+      panel.classList.toggle('active', active);
+      panel.hidden = !active;
+    });
+    if (name === 'history') History.render();
+  },
+  bindActions() {
+    document.addEventListener('click', event => {
+      const target = event.target.closest('[data-action]');
+      if (!target) return;
+      const action = target.dataset.action;
+      const map = {
+        'go-home': () => this.activateTab('calculator'),
+        'calculate-main': () => Calculator.calculateMain(),
+        'clear-main': () => Calculator.clearMain(),
+        'calculate-energy': () => Energy.calculate(),
+        'clear-energy': () => Energy.clear(),
+        'calculate-accuracy': () => Accuracy.calculate(),
+        'clear-accuracy': () => Accuracy.clear(),
+        'calculate-md': () => MD.calculate(),
+        'clear-md': () => MD.clear(),
+        'run-ocr': () => Scanner.runOCR(),
+        'clear-scan': () => Scanner.clear(),
+        'export-json': () => History.exportJSON(),
+        'export-csv': () => History.exportCSV(),
+        'clear-history': () => History.clear(),
+        'print-record': () => Reports.printCurrent()
+      };
+      map[action]?.();
+    });
 
-    const lang = localStorage.getItem(APP.langKey) || 'ms';
-    document.documentElement.lang = lang;
-    this.applyLanguage(lang);
-
-    setTimeout(() => {
-      Helpers.$('splash').hidden = true;
-      Helpers.$('app').hidden = false;
-    }, 350);
-
-    this.bindInputListeners();
-    this.updateOnlineStatus();
-    window.addEventListener('online', () => this.updateOnlineStatus());
-    window.addEventListener('offline', () => this.updateOnlineStatus());
+    $('#themeToggle').addEventListener('click', () => {
+      const current = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = current;
+      $('#themeToggle').textContent = current === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ theme: current }));
+    });
+    $('#langToggle').addEventListener('click', () => this.toast('BM/EN full translation dictionary planned for v3.4. v3.3.2 keeps technical labels stable.'));
+    $('#accuracyMethod').addEventListener('change', () => Accuracy.toggleMethod());
+    $('#historySearch').addEventListener('input', () => History.render());
+    $('#historyImport').addEventListener('change', event => History.importJSON(event));
+    $('#ctPreset').addEventListener('change', event => Calculator.applyPreset(event.target.value, '#ctPrimary', '#ctSecondary'));
+    $('#vtPreset').addEventListener('change', event => Calculator.applyPreset(event.target.value, '#vtPrimary', '#vtSecondary'));
+    Scanner.bind();
+  },
+  bindStatus() {
+    const update = () => $('#offlineBadge').classList.toggle('hidden', navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
 
     window.addEventListener('beforeinstallprompt', event => {
       event.preventDefault();
-      APP.deferredInstallPrompt = event;
-      const btn = Helpers.$('installBtn');
-      btn.hidden = false;
-      btn.onclick = async () => {
-        btn.hidden = true;
-        APP.deferredInstallPrompt.prompt();
-        await APP.deferredInstallPrompt.userChoice;
-        APP.deferredInstallPrompt = null;
-      };
+      deferredInstallPrompt = event;
+      $('#installBtn').hidden = false;
+    });
+    $('#installBtn').addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      $('#installBtn').hidden = true;
     });
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service worker registration failed:', err));
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const worker = reg.installing;
+          worker?.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              this.toast('New version available. Refresh the page to update.');
+            }
+          });
+        });
+      }).catch(() => this.toast('Service worker registration failed.'));
     }
-
-    History.render();
-    Calculator.updateLiveRatios();
-    Calculator.updateEnergyMode();
-    Calculator.updateDemandInterval();
-    Accuracy.syncTolerance();
-    console.info(`✅ ${APP.name} v${APP.version} initialized`);
   },
-  t(key) {
-    const lang = localStorage.getItem(APP.langKey) || 'ms';
-    return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
-  },
-  applyLanguage(lang) {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.getAttribute('data-i18n');
-      if (I18N[lang] && I18N[lang][key]) el.textContent = I18N[lang][key];
-    });
-    Helpers.$('langIcon').textContent = lang === 'ms' ? 'BM' : 'EN';
-  },
-  toggleLanguage() {
-    const next = (localStorage.getItem(APP.langKey) || 'ms') === 'ms' ? 'en' : 'ms';
-    localStorage.setItem(APP.langKey, next);
-    document.documentElement.lang = next;
-    this.applyLanguage(next);
-    this.toast(next === 'ms' ? 'Bahasa Melayu aktif.' : 'English active.', 'success');
-  },
-  toggleTheme() {
-    const current = document.documentElement.dataset.theme || 'dark';
-    const next = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem(APP.themeKey, next);
-    Helpers.$('themeIcon').textContent = next === 'dark' ? '🌙' : '☀️';
-  },
-  updateOnlineStatus() {
-    const badge = Helpers.$('offlineBadge');
-    if (!badge) return;
-    badge.textContent = navigator.onLine ? 'Online' : 'Offline';
-    badge.className = `status-pill ${navigator.onLine ? 'online' : 'offline'}`;
-  },
-  switchTab(panelId) {
-    document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
-    Helpers.$(panelId).classList.add('active');
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === panelId));
-    if (panelId === 'historyPanel') History.render();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  },
-  bindInputListeners() {
-    ['ctPrimary', 'ctSecondary', 'vtPrimary', 'vtSecondary', 'meterConstActive', 'meterConstReactive'].forEach(id => {
-      const el = Helpers.$(id);
-      if (el) el.addEventListener('input', () => Calculator.updateLiveRatios());
-    });
-  },
-  toast(message, type = 'success') {
-    const toast = Helpers.$('toast');
+  toast(message) {
+    const toast = $('#toast');
     toast.textContent = message;
-    toast.className = `toast ${type}`;
     toast.hidden = false;
-    clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => { toast.hidden = true; }, 3200);
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.hidden = true; }, 3800);
   },
-  confirmReset() {
-    if (!confirm('Reset current input fields?')) return;
-    const activePanel = document.querySelector('.panel.active');
-    if (!activePanel) return;
-    activePanel.querySelectorAll('input, textarea').forEach(el => {
-      if (el.type === 'file') return;
-      if (el.id.includes('Const')) el.value = '1000';
-      else if (el.id.includes('Multiplier')) el.value = '1';
-      else if (el.id.includes('Secondary')) el.value = el.id.startsWith('ct') ? '5' : '110';
-      else el.value = '';
-    });
-    activePanel.querySelectorAll('.result-zone').forEach(el => { el.hidden = true; el.innerHTML = ''; });
-    Calculator.updateLiveRatios();
-    this.toast('Current panel reset.', 'warning');
-  },
-  renderResult(containerId, heroLabel, heroValue, html, variant = '') {
-    const el = Helpers.$(containerId);
-    el.hidden = false;
-    el.innerHTML = `
-      <div class="result-hero ${variant}"><small>${Helpers.escape(heroLabel)}</small><strong>${Helpers.escape(heroValue)}</strong></div>
-      <div class="result-content">${html}</div>
+  result(target, record) {
+    const warnings = record.warnings?.length ? `<ul class="warning-list">${record.warnings.map(w => `<li>${Helpers.text(w)}</li>`).join('')}</ul>` : '';
+    const metrics = Object.entries(record.metrics || {}).map(([k, v]) => `<div class="metric"><span>${Helpers.text(k)}</span><strong>${Helpers.text(v)}</strong></div>`).join('');
+    const status = record.status ? `<p><strong class="${record.statusClass || ''}">${Helpers.text(record.status)}</strong></p>` : '';
+    $(target).innerHTML = `
+      <h2>Result</h2>
+      ${status}
+      <div class="metric-grid">${metrics}</div>
+      <div class="formula-box"><pre>${Helpers.text(record.formula)}</pre></div>
+      ${warnings}
+      <div class="button-row"><button class="btn secondary" type="button" data-record-id="${record.id}" data-history-action="view">View Details</button><button class="btn secondary" type="button" data-record-id="${record.id}" data-history-action="print">Print Report</button></div>
     `;
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+};
+
+const Warning = {
+  commonMultiplier(multiplier) {
+    const list = [];
+    if (multiplier > 10000) list.push('Multiplier is very high. Confirm CT and VT ratios.');
+    if (multiplier < 1) list.push('Multiplier is below 1. Confirm ratio entries.');
+    return list;
+  },
+  constant(value) {
+    const list = [];
+    if (value < 10) list.push('Meter constant seems unusually low. Confirm unit and OCR/value entry.');
+    if (value > 1000000) list.push('Meter constant seems unusually high. Confirm unit and OCR/value entry.');
+    return list;
+  }
+};
+
+const Records = {
+  create(type, title, inputs, metrics, formula, warnings = [], status = '', statusClass = '') {
+    return { id: crypto.randomUUID(), version: APP_VERSION, type, title, createdAt: Helpers.iso(), inputs, metrics, formula, warnings, status, statusClass };
   }
 };
 
 const Calculator = {
-  setMode(mode) {
-    APP.calcMode = mode;
-    document.querySelectorAll('[data-calc-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.calcMode === mode));
-    Helpers.$('ctFields').hidden = mode === 'direct';
-    Helpers.$('vtFields').hidden = mode !== 'ctvt';
-    this.updateLiveRatios();
+  applyPreset(value, primarySelector, secondarySelector) {
+    if (value === 'custom') return;
+    const [p, s] = value.split('/').map(Number);
+    $(primarySelector).value = p;
+    $(secondarySelector).value = s;
   },
-  updateLiveRatios() {
-    const ctP = Helpers.num('ctPrimary');
-    const ctS = Helpers.num('ctSecondary');
-    const vtP = Helpers.num('vtPrimary');
-    const vtS = Helpers.num('vtSecondary');
-    Helpers.$('ctRatioLive').textContent = Helpers.isPositive(ctP) && Helpers.isPositive(ctS) ? `${Helpers.format(ctP / ctS)} : 1` : '-';
-    Helpers.$('vtRatioLive').textContent = Helpers.isPositive(vtP) && Helpers.isPositive(vtS) ? `${Helpers.format(vtP / vtS)} : 1` : '-';
-    this.updateWarnings();
+  calculateMain() {
+    try {
+      const ctPrimary = Helpers.number('#ctPrimary');
+      const ctSecondary = Helpers.number('#ctSecondary');
+      const vtPrimary = Helpers.number('#vtPrimary');
+      const vtSecondary = Helpers.number('#vtSecondary');
+      const activeConst = Helpers.number('#activeConst');
+      const reactiveConst = Helpers.number('#reactiveConst');
+      [ctPrimary, ctSecondary, vtPrimary, vtSecondary, activeConst, reactiveConst].forEach((v, i) => Helpers.assertPositive(v, ['CT Primary','CT Secondary','VT Primary','VT Secondary','Active Constant','Reactive Constant'][i]));
+      const ctRatio = ctPrimary / ctSecondary;
+      const vtRatio = vtPrimary / vtSecondary;
+      const multiplier = ctRatio * vtRatio;
+      const primaryActive = activeConst / multiplier;
+      const primaryReactive = reactiveConst / multiplier;
+      const warnings = [
+        ...Warning.commonMultiplier(multiplier),
+        ...Warning.constant(activeConst),
+        ...Warning.constant(reactiveConst)
+      ];
+      if (![1, 5].includes(ctSecondary)) warnings.push('CT secondary is not 1A or 5A. Confirm CT nameplate.');
+      if ($('#supplyType').value) warnings.push('Supply type is recorded for reference only. It does not change multiplier formula.');
+      const formula = `CT Ratio = ${ctPrimary} ÷ ${ctSecondary} = ${Helpers.fmt(ctRatio)}\nVT Ratio = ${vtPrimary} ÷ ${vtSecondary} = ${Helpers.fmt(vtRatio)}\nMultiplier = ${Helpers.fmt(ctRatio)} × ${Helpers.fmt(vtRatio)} = ${Helpers.fmt(multiplier)}\nActive Primary Constant = ${activeConst} ÷ ${Helpers.fmt(multiplier)} = ${Helpers.fmt(primaryActive)} imp/kWh\nReactive Primary Constant = ${reactiveConst} ÷ ${Helpers.fmt(multiplier)} = ${Helpers.fmt(primaryReactive)} imp/kvarh`;
+      const record = Records.create('calculator', 'CT/VT Meter Constant', { ctPrimary, ctSecondary, vtPrimary, vtSecondary, activeConst, reactiveConst, supplyType: $('#supplyType').value }, {
+        'CT Ratio': Helpers.fmt(ctRatio), 'VT Ratio': Helpers.fmt(vtRatio), 'Total Multiplier': Helpers.fmt(multiplier), 'Active Primary Constant': `${Helpers.fmt(primaryActive)} imp/kWh`, 'Reactive Primary Constant': `${Helpers.fmt(primaryReactive)} imp/kvarh`
+      }, formula, warnings);
+      History.add(record);
+      UI.result('#mainResult', record);
+    } catch (error) { UI.toast(error.message); }
   },
-  updateWarnings() {
-    const warnings = [];
-    const mode = APP.calcMode;
-    const ctP = Helpers.num('ctPrimary');
-    const ctS = Helpers.num('ctSecondary');
-    const vtP = Helpers.num('vtPrimary');
-    const vtS = Helpers.num('vtSecondary');
-    if (mode !== 'direct') {
-      if (Helpers.isPositive(ctS) && ![1, 5].includes(ctS)) warnings.push('CT secondary is unusual. Typical values are 1A or 5A. Verify site record.');
-      if (Helpers.isPositive(ctP) && Helpers.isPositive(ctS) && ctP <= ctS) warnings.push('CT primary should normally be greater than CT secondary.');
-    }
-    if (mode === 'ctvt') {
-      const typicalVT = [57.7, 63.5, 100, 110, 115, 120];
-      if (Helpers.isPositive(vtS) && !typicalVT.some(v => Math.abs(vtS - v) < 0.05)) warnings.push('VT secondary is unusual. Verify VT nameplate/SLD.');
-      if (Helpers.isPositive(vtP) && Helpers.isPositive(vtS) && vtP <= vtS) warnings.push('VT primary should normally be greater than VT secondary.');
-    }
-    const box = Helpers.$('calculatorWarnings');
-    if (!warnings.length) { box.hidden = true; box.innerHTML = ''; return; }
-    box.hidden = false;
-    box.innerHTML = `<strong>Input warnings:</strong><ul>${warnings.map(w => `<li>${Helpers.escape(w)}</li>`).join('')}</ul>`;
-  },
-  calculate() {
-    const activeConst = Helpers.num('meterConstActive');
-    const reactiveConst = Helpers.num('meterConstReactive');
-    const supply = Helpers.text('supplyType');
-    const meterClass = Helpers.text('meterClass');
-    if (!Helpers.isPositive(activeConst)) return UI.toast('Meter Constant Active must be greater than zero.', 'error');
-    if (!Helpers.isNonNegative(reactiveConst) && Number.isFinite(reactiveConst)) return UI.toast('Reactive constant must be zero or greater.', 'error');
-
-    let ctRatio = 1;
-    let vtRatio = 1;
-    const mode = APP.calcMode;
-    if (mode !== 'direct') {
-      const ctP = Helpers.num('ctPrimary');
-      const ctS = Helpers.num('ctSecondary');
-      if (!Helpers.isPositive(ctP) || !Helpers.isPositive(ctS)) return UI.toast('Enter valid CT primary and secondary values.', 'error');
-      if (ctP <= ctS) return UI.toast('CT primary must be greater than CT secondary.', 'error');
-      ctRatio = ctP / ctS;
-    }
-    if (mode === 'ctvt') {
-      const vtP = Helpers.num('vtPrimary');
-      const vtS = Helpers.num('vtSecondary');
-      if (!Helpers.isPositive(vtP) || !Helpers.isPositive(vtS)) return UI.toast('Enter valid VT primary and secondary values.', 'error');
-      if (vtP <= vtS) return UI.toast('VT primary must be greater than VT secondary.', 'error');
-      vtRatio = vtP / vtS;
-    }
-    const multiplier = ctRatio * vtRatio;
-    if (multiplier > 10000) UI.toast('High multiplier detected. Verify CT/VT ratio.', 'warning');
-    const primaryActive = activeConst / multiplier;
-    const primaryReactive = reactiveConst > 0 ? reactiveConst / multiplier : 0;
-    const formula = mode === 'direct' ? 'M = 1' : mode === 'ct' ? `M = CT Ratio = ${Helpers.format(ctRatio)}` : `M = CT Ratio × VT Ratio = ${Helpers.format(ctRatio)} × ${Helpers.format(vtRatio)}`;
-    const record = { type: 'calculator', mode, supply, meterClass, activeConst, reactiveConst, ctRatio, vtRatio, multiplier, primaryActive, primaryReactive, timestamp: Helpers.timestamp() };
-    const html = `
-      <div class="kv-grid">
-        <div class="kv"><small>Mode</small><strong>${mode.toUpperCase()}</strong></div>
-        <div class="kv"><small>Formula</small><strong>${Helpers.escape(formula)}</strong></div>
-        <div class="kv"><small>CT Ratio</small><strong>${Helpers.format(ctRatio)} : 1</strong></div>
-        <div class="kv"><small>VT Ratio</small><strong>${Helpers.format(vtRatio)} : 1</strong></div>
-        <div class="kv"><small>Primary-side Active Constant</small><strong>${Helpers.format(primaryActive)} imp/kWh</strong></div>
-        <div class="kv"><small>Secondary Active Constant</small><strong>${Helpers.format(activeConst)} imp/kWh</strong></div>
-        <div class="kv"><small>Primary-side Reactive Constant</small><strong>${Helpers.format(primaryReactive)} imp/kvarh</strong></div>
-        <div class="kv"><small>Secondary Reactive Constant</small><strong>${Helpers.format(reactiveConst)} imp/kvarh</strong></div>
-      </div>`;
-    UI.renderResult('calculatorResult', 'Total Multiplier', Helpers.format(multiplier), html);
-    History.add(record);
-  },
-  updateEnergyMode() {
-    const mode = Helpers.text('energyMode') || 'pulseToEnergy';
-    Helpers.$('energyPulseCountWrap').hidden = mode !== 'pulseToEnergy';
-    Helpers.$('energyValueWrap').hidden = mode !== 'energyToPulse';
-  },
-  calculateEnergy() {
-    const mode = Helpers.text('energyMode') || 'pulseToEnergy';
-    const unit = Helpers.text('energyUnit') || 'kWh';
-    const basis = Helpers.text('energyBasis') || 'primary';
-    const pConst = Helpers.num('energyPulseConst');
-    const inputMultiplier = Helpers.num('energyMultiplier');
-    const effectiveMultiplier = basis === 'primary' ? inputMultiplier : 1;
-    if (!Helpers.isPositive(pConst)) return UI.toast('Meter constant must be greater than zero.', 'error');
-    if (!Helpers.isPositive(inputMultiplier)) return UI.toast('Multiplier must be greater than zero.', 'error');
-    let html = '';
-    let hero = '';
-    let record = { type: mode === 'energyToPulse' ? 'energyToPulse' : 'energy', unit, basis, pulseConst: pConst, multiplier: inputMultiplier, effectiveMultiplier, timestamp: Helpers.timestamp() };
-    if (mode === 'energyToPulse') {
-      const energyValue = Helpers.num('energyValue');
-      if (!Helpers.isNonNegative(energyValue)) return UI.toast('Energy value must be zero or greater.', 'error');
-      const energyKWh = unit === 'MWh' ? energyValue * 1000 : energyValue;
-      const pulse = (energyKWh * pConst) / effectiveMultiplier;
-      hero = `${Helpers.format(pulse)} pulse`;
-      record = { ...record, energyValue, result: pulse };
-      html = `<div class="kv-grid"><div class="kv"><small>Formula</small><strong>Pulse = Energy × Constant / Multiplier</strong></div><div class="kv"><small>Input Energy</small><strong>${Helpers.format(energyValue)} ${unit}</strong></div><div class="kv"><small>Meter Constant</small><strong>${Helpers.format(pConst)} imp/${unit}</strong></div><div class="kv"><small>Input Multiplier</small><strong>${Helpers.format(inputMultiplier)}</strong></div><div class="kv"><small>Applied Multiplier</small><strong>${Helpers.format(effectiveMultiplier)}</strong></div><div class="kv"><small>Basis</small><strong>${basis === 'primary' ? 'Primary / Billing' : 'Secondary / Raw'}</strong></div></div>`;
-    } else {
-      const pulseCount = Helpers.num('energyPulseCount');
-      if (!Helpers.isNonNegative(pulseCount)) return UI.toast('Pulse count must be zero or greater.', 'error');
-      let energy = (pulseCount / pConst) * effectiveMultiplier;
-      if (unit === 'MWh') energy /= 1000;
-      hero = `${Helpers.format(energy)} ${unit}`;
-      record = { ...record, pulseCount, result: energy };
-      html = `<div class="kv-grid"><div class="kv"><small>Formula</small><strong>Energy = Pulse / Constant × Multiplier</strong></div><div class="kv"><small>Pulse Count</small><strong>${Helpers.format(pulseCount)}</strong></div><div class="kv"><small>Meter Constant</small><strong>${Helpers.format(pConst)} imp/${unit}</strong></div><div class="kv"><small>Input Multiplier</small><strong>${Helpers.format(inputMultiplier)}</strong></div><div class="kv"><small>Applied Multiplier</small><strong>${Helpers.format(effectiveMultiplier)}</strong></div><div class="kv"><small>Basis</small><strong>${basis === 'primary' ? 'Primary / Billing' : 'Secondary / Raw'}</strong></div></div>`;
-    }
-    UI.renderResult('energyResult', mode === 'energyToPulse' ? 'Required Pulse' : 'Energy', hero, html);
-    History.add(record);
-  },
-  updateDemandInterval() {
-    const value = Helpers.text('mdInterval');
-    Helpers.$('mdCustomIntervalWrap').hidden = value !== 'custom';
-  },
-  calculateDemand() {
-    const pulseCount = Helpers.num('mdPulseCount');
-    const pConst = Helpers.num('mdPulseConst');
-    const multiplier = Helpers.num('mdMultiplier');
-    const basis = Helpers.text('mdBasis') || 'primary';
-    const effectiveMultiplier = basis === 'primary' ? multiplier : 1;
-    const selectInterval = Helpers.text('mdInterval');
-    const interval = selectInterval === 'custom' ? Helpers.num('mdCustomInterval') : Number(selectInterval);
-    if (!Helpers.isNonNegative(pulseCount)) return UI.toast('Pulse count must be zero or greater.', 'error');
-    if (!Helpers.isPositive(pConst)) return UI.toast('Meter constant must be greater than zero.', 'error');
-    if (!Helpers.isPositive(multiplier)) return UI.toast('Multiplier must be greater than zero.', 'error');
-    if (!Helpers.isPositive(interval)) return UI.toast('Demand interval must be greater than zero.', 'error');
-    const energy = (pulseCount / pConst) * effectiveMultiplier;
-    const md = energy / (interval / 60);
-    const html = `<div class="kv-grid"><div class="kv"><small>Energy During Interval</small><strong>${Helpers.format(energy)} kWh</strong></div><div class="kv"><small>Interval</small><strong>${Helpers.format(interval)} minutes</strong></div><div class="kv"><small>Formula</small><strong>MD = Energy / (Interval / 60)</strong></div><div class="kv"><small>Pulse Constant</small><strong>${Helpers.format(pConst)} imp/kWh</strong></div><div class="kv"><small>Basis</small><strong>${basis === 'primary' ? 'Primary / Billing' : 'Secondary / Raw'}</strong></div><div class="kv"><small>Applied Multiplier</small><strong>${Helpers.format(effectiveMultiplier)}</strong></div></div>`;
-    UI.renderResult('demandResult', 'Maximum Demand', `${Helpers.format(md)} kW`, html);
-    History.add({ type: 'demand', pulseCount, pulseConst: pConst, multiplier, effectiveMultiplier, basis, interval, energy, result: md, timestamp: Helpers.timestamp() });
+  clearMain() {
+    ['#ctPrimary','#ctSecondary','#vtPrimary','#vtSecondary','#activeConst','#reactiveConst'].forEach(id => $(id).value = '');
+    $('#mainResult').innerHTML = '<h2>Result</h2><p class="muted">Cleared.</p>';
   }
+};
+
+const Energy = {
+  calculate() {
+    try {
+      const mode = $('#energyMode').value;
+      const unit = $('#energyUnit').value;
+      const pulse = Helpers.number('#pulseCount');
+      const energyInput = Helpers.number('#energyValue');
+      const constant = Helpers.number('#energyConst');
+      const multiplier = Helpers.number('#energyMultiplier');
+      const basis = $('#energyBasis').value;
+      Helpers.assertPositive(constant, 'Meter constant');
+      Helpers.assertPositive(multiplier, 'Multiplier');
+      const effectiveMultiplier = basis === 'secondary' ? multiplier : 1;
+      let resultValue, formula, metrics;
+      const constantUnit = Helpers.constantUnit(unit);
+      if (mode === 'pulseToEnergy') {
+        Helpers.assertPositive(pulse, 'Pulse count');
+        const kWhBase = (pulse / constant) * effectiveMultiplier;
+        resultValue = Helpers.baseKWhToUnit(kWhBase, unit);
+        formula = `Energy base = Pulse ÷ Constant × Effective Multiplier\nEnergy = ${pulse} ÷ ${constant} × ${Helpers.fmt(effectiveMultiplier)} = ${Helpers.fmt(kWhBase)} ${unit === 'MWh' ? 'kWh base' : unit}\nDisplayed = ${Helpers.fmt(resultValue)} ${unit}`;
+        metrics = { 'Energy': `${Helpers.fmt(resultValue)} ${unit}`, 'Effective Multiplier': Helpers.fmt(effectiveMultiplier), 'Constant Basis': constantUnit };
+      } else {
+        Helpers.assertPositive(energyInput, 'Energy value');
+        const kWhBase = Helpers.unitToBaseKWh(energyInput, unit);
+        resultValue = (kWhBase * constant) / effectiveMultiplier;
+        formula = `Pulse = Energy(kWh base) × Constant ÷ Effective Multiplier\nEnergy base = ${energyInput} ${unit} = ${Helpers.fmt(kWhBase)} kWh/kvarh base\nPulse = ${Helpers.fmt(kWhBase)} × ${constant} ÷ ${Helpers.fmt(effectiveMultiplier)} = ${Helpers.fmt(resultValue)}`;
+        metrics = { 'Pulse Count': `${Helpers.fmt(resultValue)} pulses`, 'Effective Multiplier': Helpers.fmt(effectiveMultiplier), 'Constant Basis': constantUnit };
+      }
+      const warnings = [...Warning.commonMultiplier(multiplier), ...Warning.constant(constant)];
+      if (unit === 'MWh') warnings.push('MWh selected: app converts internally using kWh base. Meter constant remains imp/kWh.');
+      if (basis === 'primary') warnings.push('No multiplier applied. Use only when value is already primary/billing basis.');
+      const record = Records.create('energy', 'Pulse / Energy Conversion', { mode, unit, pulse, energyInput, constant, multiplier, basis }, metrics, formula, warnings);
+      History.add(record); UI.result('#energyResult', record);
+    } catch (error) { UI.toast(error.message); }
+  },
+  clear() { ['#pulseCount','#energyValue','#energyConst','#energyMultiplier'].forEach(id => $(id).value = ''); $('#energyResult').innerHTML = '<h2>Result</h2><p class="muted">Cleared.</p>'; }
 };
 
 const Accuracy = {
-  setMode(mode) {
-    APP.accuracyMode = mode;
-    document.querySelectorAll('[data-acc-mode]').forEach(btn => btn.classList.toggle('active', btn.dataset.accMode === mode));
-    Helpers.$('registerModeFields').hidden = mode !== 'register';
-    Helpers.$('pulseModeFields').hidden = mode !== 'pulse';
+  toggleMethod() {
+    const pulse = $('#accuracyMethod').value === 'pulse';
+    $('#pulseFields').hidden = !pulse;
+    $('#registerFields').hidden = pulse;
   },
-  syncTolerance() {
-    const value = Helpers.text('accClass');
-    const input = Helpers.$('accTolerance');
-    if (value !== 'custom') input.value = value;
+  tolerance() {
+    return $('#accuracyTolerance').value === 'custom' ? Helpers.number('#customTolerance') : Number($('#accuracyTolerance').value);
   },
   calculate() {
-    const mode = APP.accuracyMode;
-    const referenceEnergy = Helpers.num('accReferenceEnergy');
-    const tolerance = Helpers.num('accTolerance');
-    const unit = Helpers.text('accUnit') || 'kWh';
-    const referenceBasis = Helpers.text('accReferenceBasis') || 'primary';
-    const readingBasis = Helpers.text('accReadingBasis') || 'primary';
-    const basisMultiplier = Helpers.num('accBasisMultiplier');
-    const remarks = Helpers.text('accRemarks');
-    if (!Helpers.isPositive(referenceEnergy)) return UI.toast('Reference energy must be greater than zero.', 'error');
-    if (!Helpers.isPositive(tolerance)) return UI.toast('Tolerance must be greater than zero.', 'error');
-    if (!Helpers.isPositive(basisMultiplier)) return UI.toast('Basis multiplier must be greater than zero.', 'error');
+    try {
+      const method = $('#accuracyMethod').value;
+      const unit = $('#accuracyUnit').value;
+      const referenceInput = Helpers.number('#referenceEnergy');
+      const referenceBasis = $('#referenceBasis').value;
+      const multiplier = Helpers.number('#accuracyMultiplier');
+      const tolerance = this.tolerance();
+      Helpers.assertPositive(referenceInput, 'Reference energy');
+      Helpers.assertPositive(multiplier, 'Multiplier');
+      Helpers.assertPositive(tolerance, 'Tolerance');
+      const referenceBase = Helpers.unitToBaseKWh(referenceInput, unit) * (referenceBasis === 'secondary' ? multiplier : 1);
+      let meterEnergyBase, basisLabel, formulaDetail, inputs = { method, unit, referenceInput, referenceBasis, multiplier, tolerance };
+      if (method === 'register') {
+        const initial = Helpers.number('#initialReading');
+        const final = Helpers.number('#finalReading');
+        const registerBasis = $('#registerBasis').value;
+        if (final < initial) throw new Error('Final reading must be equal or higher than initial reading.');
+        const rawDiff = Helpers.unitToBaseKWh(final - initial, unit);
+        meterEnergyBase = rawDiff * (registerBasis === 'secondary' ? multiplier : 1);
+        basisLabel = registerBasis;
+        formulaDetail = `Register Difference = ${final} - ${initial} = ${Helpers.fmt(final - initial)} ${unit}\nMeter Energy Base = ${Helpers.fmt(rawDiff)} × ${registerBasis === 'secondary' ? Helpers.fmt(multiplier) : '1'} = ${Helpers.fmt(meterEnergyBase)} kWh/kvarh base`;
+        Object.assign(inputs, { initial, final, registerBasis });
+      } else {
+        const pulse = Helpers.number('#accuracyPulse');
+        const constant = Helpers.number('#accuracyPulseConst');
+        const pulseBasis = $('#pulseBasis').value;
+        Helpers.assertPositive(pulse, 'Pulse count');
+        Helpers.assertPositive(constant, 'Meter constant');
+        meterEnergyBase = (pulse / constant) * (pulseBasis === 'secondary' ? multiplier : 1);
+        basisLabel = pulseBasis;
+        formulaDetail = `Meter Energy Base = Pulse ÷ Constant × Effective Multiplier\nMeter Energy Base = ${pulse} ÷ ${constant} × ${pulseBasis === 'secondary' ? Helpers.fmt(multiplier) : '1'} = ${Helpers.fmt(meterEnergyBase)} kWh/kvarh base`;
+        Object.assign(inputs, { pulse, constant, pulseBasis });
+      }
+      const errorPct = ((meterEnergyBase - referenceBase) / referenceBase) * 100;
+      const pass = Math.abs(errorPct) <= tolerance;
+      const formula = `Reference Energy Base = ${referenceInput} ${unit} × ${referenceBasis === 'secondary' ? Helpers.fmt(multiplier) : '1'} = ${Helpers.fmt(referenceBase)} kWh/kvarh base\n${formulaDetail}\nError % = (${Helpers.fmt(meterEnergyBase)} - ${Helpers.fmt(referenceBase)}) ÷ ${Helpers.fmt(referenceBase)} × 100 = ${Helpers.fmt(errorPct)}%\nTolerance = ±${Helpers.fmt(tolerance)}%`;
+      const warnings = [...Warning.commonMultiplier(multiplier)];
+      if (basisLabel === 'primary') warnings.push('No multiplier applied to meter value. Confirm value is already primary/billing basis.');
+      if (referenceBasis === 'secondary') warnings.push('Multiplier applied to reference energy. Confirm reference value is raw/secondary.');
+      if (unit === 'MWh') warnings.push('MWh selected: app converts internally to kWh base.');
+      const record = Records.create('accuracy', 'Accuracy Test', inputs, { 'Meter Energy': `${Helpers.fmt(Helpers.baseKWhToUnit(meterEnergyBase, unit))} ${unit}`, 'Reference Energy': `${Helpers.fmt(Helpers.baseKWhToUnit(referenceBase, unit))} ${unit}`, 'Error': `${Helpers.fmt(errorPct)}%`, 'Tolerance': `±${Helpers.fmt(tolerance)}%` }, formula, warnings, pass ? 'PASS' : 'FAIL', pass ? 'pass' : 'fail');
+      History.add(record); UI.result('#accuracyResult', record);
+    } catch (error) { UI.toast(error.message); }
+  },
+  clear() { ['#referenceEnergy','#accuracyMultiplier','#initialReading','#finalReading','#accuracyPulse','#accuracyPulseConst'].forEach(id => $(id).value = ''); $('#accuracyResult').innerHTML = '<h2>Result</h2><p class="muted">Cleared.</p>'; }
+};
 
-    let meterEnergy = NaN;
-    let detailHtml = '';
-    let formula = '';
-    const normalizedReferenceEnergy = referenceBasis === 'secondary' ? referenceEnergy * basisMultiplier : referenceEnergy;
-    let record = { type: 'accuracy', mode, unit, referenceEnergy, normalizedReferenceEnergy, referenceBasis, readingBasis, basisMultiplier, tolerance, remarks, timestamp: Helpers.timestamp() };
-
-    if (mode === 'register') {
-      const start = Helpers.num('accStartReading');
-      const end = Helpers.num('accEndReading');
-      if (!Number.isFinite(start)) return UI.toast('Enter valid start reading.', 'error');
-      if (!Number.isFinite(end)) return UI.toast('Enter valid end reading.', 'error');
-      if (end <= start) return UI.toast('End reading must be greater than start reading.', 'error');
-      const rawDifference = end - start;
-      meterEnergy = readingBasis === 'secondary' ? rawDifference * basisMultiplier : rawDifference;
-      formula = 'Error % = ((Normalized Meter Energy - Normalized Reference Energy) / Normalized Reference Energy) × 100';
-      detailHtml = `<div class="kv"><small>Start Reading</small><strong>${Helpers.format(start)} ${unit}</strong></div><div class="kv"><small>End Reading</small><strong>${Helpers.format(end)} ${unit}</strong></div><div class="kv"><small>Raw Meter Difference</small><strong>${Helpers.format(rawDifference)} ${unit}</strong></div><div class="kv"><small>Normalized Meter Energy</small><strong>${Helpers.format(meterEnergy)} ${unit}</strong></div>`;
-      record = { ...record, start, end, rawDifference, meterEnergy };
-    } else {
-      const pulseCount = Helpers.num('accPulseCount');
-      const pulseConst = Helpers.num('accPulseConst');
-      const multiplier = Helpers.num('accMultiplier');
-      const effectivePulseMultiplier = readingBasis === 'secondary' ? multiplier : 1;
-      if (!Helpers.isPositive(pulseCount)) return UI.toast('Pulse count must be greater than zero.', 'error');
-      if (!Helpers.isPositive(pulseConst)) return UI.toast('Meter constant must be greater than zero.', 'error');
-      if (!Helpers.isPositive(multiplier)) return UI.toast('Pulse multiplier must be greater than zero.', 'error');
-      meterEnergy = (pulseCount / pulseConst) * effectivePulseMultiplier;
-      if (unit === 'MWh') meterEnergy /= 1000;
-      formula = 'Meter Energy = Pulse Count / Meter Constant × Multiplier; Error % = ((Meter Energy - Reference Energy) / Reference Energy) × 100';
-      detailHtml = `<div class="kv"><small>Pulse Count</small><strong>${Helpers.format(pulseCount)}</strong></div><div class="kv"><small>Meter Constant</small><strong>${Helpers.format(pulseConst)} imp/${unit}</strong></div><div class="kv"><small>Pulse Multiplier</small><strong>${Helpers.format(multiplier)}</strong></div><div class="kv"><small>Applied Pulse Multiplier</small><strong>${Helpers.format(effectivePulseMultiplier)}</strong></div><div class="kv"><small>Meter Energy</small><strong>${Helpers.format(meterEnergy)} ${unit}</strong></div>`;
-      record = { ...record, pulseCount, pulseConst, multiplier, effectivePulseMultiplier, meterEnergy };
-    }
-
-    const error = ((meterEnergy - normalizedReferenceEnergy) / normalizedReferenceEnergy) * 100;
-    const passed = Math.abs(error) <= tolerance;
-    const html = `<div class="kv-grid"><div class="kv"><small>Mode</small><strong>${mode === 'register' ? 'Register Comparison' : 'Pulse Output Test'}</strong></div><div class="kv"><small>Reference Energy</small><strong>${Helpers.format(referenceEnergy)} ${unit}</strong></div><div class="kv"><small>Normalized Reference</small><strong>${Helpers.format(normalizedReferenceEnergy)} ${unit}</strong></div><div class="kv"><small>Reference Basis</small><strong>${referenceBasis === 'primary' ? 'Primary / Billing' : 'Secondary / Raw'}</strong></div><div class="kv"><small>Reading Basis</small><strong>${readingBasis === 'primary' ? 'Primary / Billing' : 'Secondary / Raw'}</strong></div><div class="kv"><small>Basis Multiplier</small><strong>${Helpers.format(basisMultiplier)}</strong></div>${detailHtml}<div class="kv"><small>Error</small><strong class="${passed ? 'pass' : 'fail'}">${Helpers.fixed(error, 4)}%</strong></div><div class="kv"><small>Tolerance</small><strong>±${Helpers.format(tolerance)}%</strong></div><div class="kv"><small>Status</small><strong class="${passed ? 'pass' : 'fail'}">${passed ? 'PASS' : 'FAIL'}</strong></div><div class="kv"><small>Formula</small><strong>${Helpers.escape(formula)}</strong></div>${remarks ? `<div class="kv"><small>Remarks</small><strong>${Helpers.escape(remarks)}</strong></div>` : ''}</div>`;
-    UI.renderResult('accuracyResult', 'Accuracy Status', passed ? 'PASS' : 'FAIL', html, passed ? 'pass' : 'fail');
-    History.add({ ...record, error, passed });
-  }
+const MD = {
+  calculate() {
+    try {
+      const pulse = Helpers.number('#mdPulse');
+      const constant = Helpers.number('#mdConst');
+      const multiplier = Helpers.number('#mdMultiplier');
+      const interval = Helpers.number('#mdInterval');
+      const basis = $('#mdBasis').value;
+      [pulse, constant, multiplier, interval].forEach((v, i) => Helpers.assertPositive(v, ['Pulse count','Meter constant','Multiplier','Interval'][i]));
+      const effectiveMultiplier = basis === 'secondary' ? multiplier : 1;
+      const energy = (pulse / constant) * effectiveMultiplier;
+      const md = energy / (interval / 60);
+      const formula = `Energy = Pulse ÷ Constant × Effective Multiplier\nEnergy = ${pulse} ÷ ${constant} × ${Helpers.fmt(effectiveMultiplier)} = ${Helpers.fmt(energy)} kWh\nMD kW = Energy ÷ (Interval ÷ 60)\nMD = ${Helpers.fmt(energy)} ÷ (${interval} ÷ 60) = ${Helpers.fmt(md)} kW`;
+      const warnings = [...Warning.commonMultiplier(multiplier), ...Warning.constant(constant)];
+      if (basis === 'primary') warnings.push('No multiplier applied. Use only if pulse/energy is already converted to primary basis.');
+      const record = Records.create('md', 'Maximum Demand', { pulse, constant, multiplier, interval, basis }, { 'Energy': `${Helpers.fmt(energy)} kWh`, 'Maximum Demand': `${Helpers.fmt(md)} kW`, 'Interval': `${interval} min`, 'Effective Multiplier': Helpers.fmt(effectiveMultiplier) }, formula, warnings);
+      History.add(record); UI.result('#mdResult', record);
+    } catch (error) { UI.toast(error.message); }
+  },
+  clear() { ['#mdPulse','#mdConst','#mdMultiplier'].forEach(id => $(id).value = ''); $('#mdResult').innerHTML = '<h2>Result</h2><p class="muted">Cleared.</p>'; }
 };
 
 const Scanner = {
-  file: null,
-  detected: {},
-  loadFile(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) return UI.toast('Please select an image file.', 'error');
-    this.file = file;
-    const preview = Helpers.$('scanPreview');
-    preview.src = URL.createObjectURL(file);
-    preview.hidden = false;
-    Helpers.$('scanBtn').disabled = false;
-    Helpers.$('scanResult').hidden = true;
+  bind() {
+    const drop = $('#fileDrop');
+    const input = $('#imageInput');
+    drop.addEventListener('click', () => input.click());
+    drop.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); input.click(); } });
+    input.addEventListener('change', event => this.loadFile(event.target.files?.[0]));
+    ['dragenter','dragover'].forEach(type => drop.addEventListener(type, event => { event.preventDefault(); drop.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(type => drop.addEventListener(type, event => { event.preventDefault(); drop.classList.remove('dragover'); }));
+    drop.addEventListener('drop', event => this.loadFile(event.dataTransfer.files?.[0]));
+  },
+  loadFile(file) {
+    if (!file || !file.type.startsWith('image/')) { UI.toast('Please upload an image file.'); return; }
+    uploadedImage = file;
+    const url = URL.createObjectURL(file);
+    $('#scanPreview').src = url;
+    $('#scanPreview').classList.remove('hidden');
+    $('#ocrStatus').textContent = `Image loaded: ${file.name}`;
+  },
+  async ensureOCR() {
+    if (window.Tesseract) return window.Tesseract;
+    if (tesseractLoading) return tesseractLoading;
+    $('#ocrStatus').textContent = 'Loading OCR engine...';
+    tesseractLoading = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      script.async = true;
+      script.onload = () => resolve(window.Tesseract);
+      script.onerror = () => reject(new Error('OCR engine failed to load. Check internet connection or vendor Tesseract locally.'));
+      document.head.appendChild(script);
+    });
+    return tesseractLoading;
   },
   async runOCR() {
-    if (!this.file) return UI.toast('Upload an image first.', 'error');
-    if (!window.Tesseract) return UI.toast('OCR library is not available. Connect internet once, then retry.', 'error');
-    const progress = Helpers.$('scanProgress');
-    const bar = progress.querySelector('span');
-    progress.hidden = false;
-    bar.style.width = '5%';
-    Helpers.$('scanBtn').disabled = true;
     try {
-      const result = await Tesseract.recognize(this.file, 'eng', {
-        logger: msg => {
-          if (msg.status === 'recognizing text' && Number.isFinite(msg.progress)) bar.style.width = `${Math.max(8, Math.round(msg.progress * 100))}%`;
-        }
-      });
+      if (!uploadedImage) throw new Error('Upload an image first.');
+      const Tesseract = await this.ensureOCR();
+      $('#ocrStatus').textContent = 'Running OCR...';
+      const result = await Tesseract.recognize(uploadedImage, 'eng', { logger: m => { if (m.status) $('#ocrStatus').textContent = `${m.status} ${m.progress ? Math.round(m.progress * 100) + '%' : ''}`; } });
       const text = result.data.text || '';
-      const confidence = Math.round(result.data.confidence || 0);
-      this.detected = this.extract(text);
-      this.render(text, confidence);
-      UI.toast('OCR completed. Review detected values before applying.', 'success');
-    } catch (error) {
-      console.error(error);
-      UI.toast('OCR failed. Try a clearer image.', 'error');
-    } finally {
-      Helpers.$('scanBtn').disabled = false;
-      setTimeout(() => { progress.hidden = true; }, 800);
-    }
+      const data = this.extract(text);
+      this.render(data, text);
+      $('#ocrStatus').textContent = 'OCR completed. Verify before applying values.';
+    } catch (error) { UI.toast(error.message); $('#ocrStatus').textContent = 'OCR failed.'; }
   },
   extract(text) {
-    const normalized = text.replace(/[,]/g, '.').replace(/\s+/g, ' ');
-    const pick = (...patterns) => {
-      for (const pattern of patterns) {
-        const match = normalized.match(pattern);
-        if (match) return match[1];
-      }
-      return '';
-    };
+    const compact = text.replace(/\s+/g, ' ');
+    const pick = (regex) => compact.match(regex)?.[1] || '';
     return {
-      activeConst: pick(/(\d+(?:\.\d+)?)\s*(?:imp|pulse|p)\s*\/?\s*kwh/i, /(?:kwh)\s*[:=]?\s*(\d+(?:\.\d+)?)/i),
-      reactiveConst: pick(/(\d+(?:\.\d+)?)\s*(?:imp|pulse|p)\s*\/?\s*kvarh/i, /(?:kvarh)\s*[:=]?\s*(\d+(?:\.\d+)?)/i),
-      meterClass: pick(/(?:class|cl|cls)\s*[:.]?\s*(0\.2s|0\.5s|0\.5|1|2)/i),
-      currentRating: pick(/(\d+(?:\.\d+)?\s*(?:\(\s*\d+(?:\.\d+)?\s*\)|[-/]\s*\d+(?:\.\d+)?)?\s*a)/i),
-      voltage: pick(/(\d+(?:\.\d+)?\s*(?:v|kv))/i),
-      frequency: pick(/(50\s*hz|60\s*hz)/i),
-      serial: pick(/(?:serial|s\/n|sn|no)\s*[:.]?\s*([a-z0-9\-\/]{4,})/i),
-      model: pick(/(?:model|type)\s*[:.]?\s*([a-z0-9\-\/]{3,})/i)
+      activeConstant: pick(/(\d+(?:[.,]\d+)?)\s*(?:imp|pulse|pulses|rev)\s*\/\s*kW?h/i),
+      reactiveConstant: pick(/(\d+(?:[.,]\d+)?)\s*(?:imp|pulse|pulses|rev)\s*\/\s*kvarh/i),
+      class: pick(/class\s*([0-9.]+s?)/i),
+      voltage: pick(/(\d+(?:[.,]\d+)?)\s*v\b/i),
+      current: pick(/(\d+(?:[.,]\d+)?\s*(?:\(|\/)?\s*\d*(?:[.,]\d+)?\)?\s*a)\b/i),
+      frequency: pick(/(50|60)\s*hz/i),
+      serial: pick(/(?:serial|s\/n|sn|no)\s*[:#-]?\s*([A-Z0-9\-]{5,})/i),
+      rawText: text
     };
   },
-  render(text, confidence) {
-    const entries = Object.entries(this.detected).filter(([, value]) => value);
-    const confidenceLabel = confidence >= 75 ? 'High' : confidence >= 50 ? 'Review manually' : 'Low';
-    const rows = entries.length ? entries.map(([key, value]) => `<label class="detect-row"><input type="checkbox" data-detect-key="${Helpers.escape(key)}" checked /><span><strong>${Helpers.escape(this.label(key))}</strong><br><small>${Helpers.escape(value)}</small></span></label>`).join('') : '<p>No structured values detected. Review raw text manually.</p>';
-    const html = `<div class="kv-grid"><div class="kv"><small>OCR Confidence</small><strong>${confidence}% - ${Helpers.escape(confidenceLabel)}</strong></div><div class="kv"><small>Detected Fields</small><strong>${entries.length}</strong></div></div><h3>Review detected values</h3>${rows}${entries.length ? '<button class="secondary-btn" onclick="Scanner.applySelected()">Apply Selected Values</button>' : ''}<h3>Raw OCR Text</h3><div class="raw-text">${Helpers.escape(text)}</div>`;
-    Helpers.$('scanResult').hidden = false;
-    Helpers.$('scanResult').innerHTML = `<div class="result-content">${html}</div>`;
+  render(data, raw) {
+    const rows = Object.entries(data).filter(([k]) => k !== 'rawText').map(([k, v]) => `<div class="scan-kv"><span>${Helpers.text(k)}</span><strong>${Helpers.text(v || 'Not found')}</strong></div>`).join('');
+    $('#scanResult').innerHTML = `<h2>Extracted Data</h2>${rows}<details><summary>Raw OCR text</summary><pre>${Helpers.text(raw)}</pre></details><div class="assumption-box warning-soft">OCR values are not trusted until manually verified against the meter nameplate.</div>`;
   },
-  label(key) {
-    return ({ activeConst: 'Active Constant', reactiveConst: 'Reactive Constant', meterClass: 'Meter Class', currentRating: 'Current Rating', voltage: 'Voltage', frequency: 'Frequency', serial: 'Serial Number', model: 'Model' })[key] || key;
-  },
-  applySelected() {
-    const selected = [...document.querySelectorAll('[data-detect-key]:checked')].map(el => el.dataset.detectKey);
-    selected.forEach(key => {
-      const value = this.detected[key];
-      if (!value) return;
-      if (key === 'activeConst') {
-        Helpers.$('meterConstActive').value = Number(value);
-        Helpers.$('energyPulseConst').value = Number(value);
-        Helpers.$('accPulseConst').value = Number(value);
-        Helpers.$('mdPulseConst').value = Number(value);
-      }
-      if (key === 'reactiveConst') Helpers.$('meterConstReactive').value = Number(value);
-      if (key === 'meterClass') {
-        const clean = value.toUpperCase();
-        const select = Helpers.$('meterClass');
-        const opt = [...select.options].find(o => o.value.toUpperCase() === clean);
-        if (opt) select.value = opt.value;
-      }
-    });
-    Calculator.updateLiveRatios();
-    UI.toast('Selected OCR values applied. Verify before calculating.', 'warning');
-    UI.switchTab('calculatorPanel');
-  }
+  clear() { uploadedImage = null; $('#imageInput').value = ''; $('#scanPreview').classList.add('hidden'); $('#scanResult').innerHTML = '<h2>Extracted Data</h2><p class="muted">No scan yet.</p>'; $('#ocrStatus').textContent = 'OCR idle.'; }
 };
 
 const History = {
-  list() {
-    try {
-      const data = JSON.parse(localStorage.getItem(APP.historyKey) || '[]');
-      return Array.isArray(data) ? data : [];
-    } catch { return []; }
-  },
-  save(list) {
-    localStorage.setItem(APP.historyKey, JSON.stringify(list.slice(0, 500)));
-    this.render();
-  },
-  add(record) {
-    const list = this.list();
-    list.unshift({ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, appVersion: APP.version, ...record });
-    this.save(list);
-    UI.toast(`${UI.t('calculated')} ${UI.t('saved')}`, 'success');
-  },
+  all() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); },
+  save(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, 200))); },
+  add(record) { const list = [record, ...this.all()]; this.save(list); },
   render() {
-    const list = this.list();
-    const count = Helpers.$('historyCount');
-    if (count) count.textContent = String(list.length);
-    const target = Helpers.$('historyList');
-    if (!target) return;
-    if (!list.length) {
-      target.innerHTML = '<div class="history-card"><p>No records yet.</p></div>';
-      return;
-    }
-    target.innerHTML = list.map(item => `<article class="history-card"><header><h3>${Helpers.escape(this.title(item))}</h3><time>${Helpers.escape(Helpers.dateLabel(item.timestamp))}</time></header><p>${Helpers.escape(this.summary(item))}</p></article>`).join('');
+    const q = ($('#historySearch')?.value || '').toLowerCase();
+    const list = this.all().filter(r => JSON.stringify(r).toLowerCase().includes(q));
+    $('#historyList').innerHTML = list.length ? list.map(r => `
+      <article class="history-item">
+        <div><h3>${Helpers.text(r.title)}</h3><p>${Helpers.displayDate(r.createdAt)} · ${Helpers.text(r.type)} ${r.status ? '· ' + Helpers.text(r.status) : ''}</p><p>${Helpers.text(Object.entries(r.metrics || {})[0]?.join(': ') || '')}</p></div>
+        <div class="history-actions"><button class="btn secondary" data-history-action="view" data-record-id="${r.id}">View</button><button class="btn secondary" data-history-action="print" data-record-id="${r.id}">Print</button><button class="btn danger" data-history-action="delete" data-record-id="${r.id}">Delete</button></div>
+      </article>`).join('') : '<p class="muted">No history records.</p>';
   },
-  title(item) {
-    return ({ calculator: 'Multiplier Calculator', energy: 'Pulse to Energy', energyToPulse: 'Energy to Pulse', accuracy: 'Accuracy Test', demand: 'Maximum Demand' })[item.type] || item.type || 'Record';
-  },
-  summary(item) {
-    switch (item.type) {
-      case 'calculator': return `Mode ${String(item.mode).toUpperCase()}, multiplier ${Helpers.format(item.multiplier)}, active primary constant ${Helpers.format(item.primaryActive)} imp/kWh.`;
-      case 'energy': return `${Helpers.format(item.pulseCount)} pulse = ${Helpers.format(item.result)} ${item.unit}, multiplier ${Helpers.format(item.multiplier)}.`;
-      case 'energyToPulse': return `${Helpers.format(item.energyValue)} ${item.unit} = ${Helpers.format(item.result)} pulse, multiplier ${Helpers.format(item.multiplier)}.`;
-      case 'accuracy': return `${item.mode} mode, error ${Helpers.fixed(item.error, 4)}%, status ${item.passed ? 'PASS' : 'FAIL'}.`;
-      case 'demand': return `${Helpers.format(item.energy)} kWh over ${Helpers.format(item.interval)} min = ${Helpers.format(item.result)} kW.`;
-      default: return JSON.stringify(item).slice(0, 140);
-    }
-  },
-  exportJSON() {
-    const payload = { app: APP.name, version: APP.version, exportedAt: Helpers.timestamp(), history: this.list() };
-    Helpers.download(`metercalc-history-v${APP.version}-${new Date().toISOString().slice(0,10)}.json`, 'application/json', JSON.stringify(payload, null, 2));
+  find(id) { return this.all().find(r => r.id === id); },
+  delete(id) { this.save(this.all().filter(r => r.id !== id)); this.render(); },
+  clear() { if (confirm('Clear all history records?')) { this.save([]); this.render(); UI.toast('History cleared.'); } },
+  exportJSON() { Helpers.download(`jamac-procal-history-${Date.now()}.json`, JSON.stringify(this.all(), null, 2), 'application/json'); },
+  exportCSV() {
+    const rows = [['date','type','title','status','metrics','formula']].concat(this.all().map(r => [r.createdAt, r.type, r.title, r.status || '', JSON.stringify(r.metrics), r.formula]));
+    Helpers.download(`jamac-procal-history-${Date.now()}.csv`, rows.map(row => row.map(Helpers.csv).join(',')).join('\n'), 'text/csv');
   },
   importJSON(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
+    const file = event.target.files?.[0]; if (!file) return;
+    if (file.size > 2_000_000) { UI.toast('Import file too large.'); return; }
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const payload = JSON.parse(String(reader.result || '{}'));
-        const incoming = Array.isArray(payload) ? payload : payload.history;
-        if (!Array.isArray(incoming)) throw new Error('Invalid history file');
-        const merged = [...incoming, ...this.list()].filter(Boolean);
-        const deduped = [];
-        const seen = new Set();
-        merged.forEach(item => {
-          const id = item.id || `${item.timestamp}-${item.type}-${JSON.stringify(item).length}`;
-          if (!seen.has(id)) { seen.add(id); deduped.push({ id, ...item }); }
-        });
-        this.save(deduped);
-        UI.toast(UI.t('imported'), 'success');
-      } catch (error) {
-        console.error(error);
-        UI.toast('Invalid JSON backup file.', 'error');
-      }
-      event.target.value = '';
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data)) throw new Error('JSON must be an array.');
+        const valid = data.filter(r => r && r.id && r.type && r.createdAt && r.metrics && r.formula).slice(0, 200);
+        this.save([...valid, ...this.all()].slice(0, 200)); this.render(); UI.toast(`${valid.length} records imported.`);
+      } catch (error) { UI.toast(`Import failed: ${error.message}`); }
     };
     reader.readAsText(file);
-  },
-  exportCSV() {
-    const list = this.list();
-    const rows = [['timestamp', 'type', 'summary', 'version'], ...list.map(item => [item.timestamp, item.type, this.summary(item), item.appVersion || APP.version])];
-    const csv = rows.map(row => row.map(Helpers.csvCell).join(',')).join('\n');
-    Helpers.download(`metercalc-history-v${APP.version}-${new Date().toISOString().slice(0,10)}.csv`, 'text/csv;charset=utf-8', csv);
-  },
-  clear() {
-    if (!confirm('Clear all local history? Export JSON first if this data is important.')) return;
-    localStorage.removeItem(APP.historyKey);
-    this.render();
-    UI.toast(UI.t('cleared'), 'warning');
   }
 };
 
-window.UI = UI;
-window.Calculator = Calculator;
-window.Accuracy = Accuracy;
-window.Scanner = Scanner;
-window.History = History;
+document.addEventListener('click', event => {
+  const btn = event.target.closest('[data-history-action]');
+  if (!btn) return;
+  const record = History.find(btn.dataset.recordId);
+  if (!record) return;
+  if (btn.dataset.historyAction === 'delete') return History.delete(record.id);
+  if (btn.dataset.historyAction === 'print') { Reports.show(record); setTimeout(() => Reports.printCurrent(), 50); return; }
+  Reports.show(record);
+});
 
-document.addEventListener('DOMContentLoaded', () => UI.init());
+const Reports = {
+  show(record) {
+    currentRecord = record;
+    $('#recordTitle').textContent = record.title;
+    $('#recordBody').innerHTML = this.html(record);
+    $('#recordDialog').showModal();
+  },
+  html(record) {
+    const metrics = Object.entries(record.metrics || {}).map(([k,v]) => `<div class="record-kv"><span>${Helpers.text(k)}</span><strong>${Helpers.text(v)}</strong></div>`).join('');
+    const inputs = Object.entries(record.inputs || {}).map(([k,v]) => `<div class="record-kv"><span>${Helpers.text(k)}</span><strong>${Helpers.text(v)}</strong></div>`).join('');
+    const warnings = record.warnings?.length ? `<h3>Warnings</h3><ul class="warning-list">${record.warnings.map(w => `<li>${Helpers.text(w)}</li>`).join('')}</ul>` : '';
+    return `<p><strong>Version:</strong> ${Helpers.text(record.version)} · <strong>Date:</strong> ${Helpers.displayDate(record.createdAt)} ${record.status ? `· <strong>Status:</strong> <span class="${record.statusClass}">${Helpers.text(record.status)}</span>` : ''}</p><h3>Result</h3>${metrics}<h3>Input</h3>${inputs}<h3>Formula</h3><div class="formula-box"><pre>${Helpers.text(record.formula)}</pre></div>${warnings}<p class="muted">Report generated locally by JAMAC ProCal. Validate against official SOP before regulatory use.</p>`;
+  },
+  printCurrent() { if (!currentRecord) return; window.print(); }
+};
+
+window.addEventListener('DOMContentLoaded', () => UI.init());
