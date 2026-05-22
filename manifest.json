@@ -1,15 +1,19 @@
 {
-  "name": "JAMAC MeterCalc Universal",
-  "short_name": "MeterCalc",
-  "description": "Offline-first meter calculator for CT/VT multiplier, pulse-energy conversion, accuracy test, maximum demand and OCR-assisted nameplate extraction.",
+  "name": "JAMAC ProCal",
+  "short_name": "ProCal",
+  "description": "Professional CT/VT meter, pulse energy, accuracy and maximum demand calculator.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0b1120",
-  "theme_color": "#0f172a",
   "orientation": "portrait-primary",
+  "background_color": "#f6f8fb",
+  "theme_color": "#0f766e",
   "categories": ["utilities", "productivity"],
   "icons": [
-    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

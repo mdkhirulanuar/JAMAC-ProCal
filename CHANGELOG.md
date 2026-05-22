@@ -1,28 +1,24 @@
 # Changelog
 
-## v3.3.1
+## v3.3.2 - Stabilization Release
 
 ### Added
+- Safer basis wording for register comparison and pulse output accuracy test.
+- CT and VT preset selectors.
+- Formula preview output for all major calculators.
+- Warning/confidence messages for high multiplier, low/high constants and primary/secondary basis risk.
+- Print-ready calculation report from result/history detail.
+- PWA PNG icons, maskable icons and Apple touch icon.
+- GitHub Pages Actions workflow.
+- Keyboard-accessible file upload drop zone.
+- Lazy-loaded OCR engine.
+- History detail/delete/print/export/import.
 
-- Accuracy Test v3.3 split into Register Comparison and Pulse Output Test.
-- Maximum Demand interval selector: 15, 30, 60 and custom minutes.
-- Formula notes and input warnings.
-- History backup/restore via JSON.
-- History export via CSV.
-- OCR review-before-apply workflow.
-- Offline status badge.
-- GitHub Pages deployment workflow.
-- Service worker cache versioning.
+### Fixed
+- Removed `user-scalable=no` for accessibility.
+- Corrected MWh handling so meter constant remains based on kWh internally.
+- Restricted service worker caching to same-origin app shell.
 
-### Changed
-
-- Version standardized to v3.3.1 across app, service worker and documentation.
-- PWA manifest uses relative paths suitable for GitHub Pages subfolder deployments.
-- Calculator result labels clarify primary-side equivalent pulse constants.
-
-### Known limitations
-
-- OCR library uses CDN by default.
-- History remains in localStorage, not IndexedDB.
-- No full PDF report module in v3.3.
-- Accuracy test must be validated against official SOP before audit use.
+### Notes
+- OCR values remain advisory and must be manually verified.
+- Tolerance/pass-fail must follow official SOP.

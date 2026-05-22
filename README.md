@@ -1,83 +1,38 @@
-# JAMAC MeterCalc Universal v3.3.1
+# JAMAC ProCal v3.3.2
 
-Professional responsive PWA build for smartphone, tablet, laptop and desktop deployment on GitHub Pages.
+Professional static PWA calculator for CT/VT multiplier, meter constant conversion, pulse-energy conversion, accuracy test support, maximum demand, OCR helper and local calculation history.
 
-Offline-first static PWA for meter field calculations:
+## What's new in v3.3.2
 
-- CT/VT multiplier calculation
-- Active/reactive primary-side equivalent pulse constants
-- Pulse to energy and energy to pulse conversion
-- Accuracy Test v3.3 with separated Register Comparison and Pulse Output Test modes
-- Maximum Demand calculator with 15/30/60/custom interval
-- OCR-assisted meter nameplate extraction with review-before-apply workflow
-- Local history with JSON/CSV export and JSON restore
-- GitHub Pages deployment workflow
+- Safer accuracy test basis selection.
+- Correct kWh/MWh/kvarh handling and clearer meter constant labels.
+- CT/VT ratio presets with manual override.
+- Formula preview in calculator results.
+- Warning/confidence system for high multipliers, unusual constants and basis risk.
+- PWA icons, install prompt and update notification.
+- GitHub Pages workflow included.
+- Accessibility fixes: scalable viewport, tab ARIA, live toast, keyboard file upload.
+- History detail view, delete, JSON/CSV export/import and print-ready report.
+- Lazy-loaded OCR engine.
 
-## Important limitation
+## Deploy on GitHub Pages
 
-This application is a calculation aid for field reference and internal pilot use. Accuracy test calculations must be validated against your organisation's official SOP, test equipment method, calibration requirements and reporting controls before audit or regulatory use.
-
-OCR results are not authoritative. Always verify CT/VT ratios from CT/VT nameplate, SLD, billing system or commissioning records.
-
-## Deploy to GitHub Pages
-
-1. Replace your repository files with this project content.
+1. Upload all files to your repository root.
 2. Commit and push to `main`.
-3. Go to GitHub repository `Settings` → `Pages`.
-4. Set `Source` to `GitHub Actions`.
-5. Open the deployed URL shown in the workflow summary.
+3. Go to **Settings → Pages**.
+4. Set source to **GitHub Actions**.
+5. The included workflow `.github/workflows/deploy-pages.yml` will publish the static app.
 
-No build step is required. This is a static app.
+Alternative: use **Deploy from a branch → main → /root**. The app uses relative paths and works in GitHub Pages subfolders.
 
-## Local test
+## Important calculation assumption
 
-Use any local static server:
+- Nameplate meter constant such as `1000 imp/kWh` is normally a secondary/raw meter constant.
+- Billing/primary register readings usually already include multiplier.
+- Raw pulse count with nameplate constant normally requires CT/VT multiplier.
+- Do not double-apply multiplier.
+- Regulatory acceptance must follow official SOP and approved test equipment procedure.
 
-```bash
-python -m http.server 8080
-```
+## Local storage
 
-Then open:
-
-```text
-http://localhost:8080
-```
-
-## Version notes
-
-v3.3 focuses on stability and clarity:
-
-- Reworked accuracy test into two calculation modes
-- Added Maximum Demand interval selector
-- Added backup/restore JSON
-- Added CSV export with basic spreadsheet formula-injection protection
-- Added formula notes and warnings
-- Added OCR review-before-apply workflow
-- Added GitHub Pages workflow
-- Updated service worker cache version to v3.3.1
-
-## Offline behaviour
-
-The app shell is cached by the service worker. The OCR library is loaded from CDN and may require internet the first time OCR is used. After the browser caches it, OCR may continue to work offline depending on browser cache behaviour.
-
-For stricter offline operation, vendor `tesseract.js` locally and update `index.html` plus `sw.js`.
-
-## Data storage
-
-History is stored in browser `localStorage` under:
-
-```text
-jamac_metercalc_v33_history
-```
-
-Export JSON regularly if field records matter. Browser data can be cleared by users, OS cleanup, private browsing mode, or site-data reset.
-
-## Recommended next version
-
-v3.4 should add:
-
-- Basic job/site fields
-- Meter profile
-- Save results under job
-- Print/PDF result export
-- Complete BM/EN coverage
+History records are stored in browser `localStorage`. Export JSON/CSV regularly for backup.
