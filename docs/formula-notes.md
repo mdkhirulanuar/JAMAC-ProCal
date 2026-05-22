@@ -1,105 +1,67 @@
 # Formula Notes
 
-## Multiplier
-
-Direct meter:
+## CT/VT Multiplier
 
 ```text
-M = 1
+CT Ratio = CT Primary / CT Secondary
+VT Ratio = VT Primary / VT Secondary
+Total Multiplier = CT Ratio × VT Ratio
 ```
 
-CT operated meter:
+## Meter Constant
 
 ```text
-M = CT Primary / CT Secondary
+Primary-side equivalent active constant = Nameplate imp/kWh / Total Multiplier
+Primary-side equivalent reactive constant = Nameplate imp/kvarh / Total Multiplier
 ```
 
-CT + VT operated meter:
+Use nameplate meter constant unless your SOP states otherwise.
+
+## Pulse to Energy
 
 ```text
-M = (CT Primary / CT Secondary) × (VT Primary / VT Secondary)
+Energy = Pulse Count / Meter Constant × Effective Multiplier
 ```
 
-## Primary-side equivalent pulse constant
+Effective multiplier:
+
+- Raw meter pulse/nameplate constant: apply CT/VT multiplier.
+- Already primary/billing value: use multiplier = 1.
+
+## Energy to Pulse
 
 ```text
-Primary-side equivalent constant = Meter nameplate constant / Total multiplier
+Pulse = Energy(kWh base) × Meter Constant / Effective Multiplier
 ```
 
-Example:
+MWh is converted internally:
 
 ```text
-Meter constant = 1000 imp/kWh
-CT = 800/5
-Multiplier = 160
-Primary-side equivalent constant = 1000 / 160 = 6.25 imp/kWh
+1 MWh = 1000 kWh
 ```
 
-## Energy from pulse
+Meter constant remains `imp/kWh` unless the reactive unit is selected, where it is `imp/kvarh`.
+
+## Accuracy Error
 
 ```text
-Energy = Pulse Count / Meter Constant × Multiplier
+Error % = (Meter Energy - Reference Energy) / Reference Energy × 100
 ```
 
-Assumption: Meter Constant is the meter nameplate constant, e.g. imp/kWh or imp/kvarh.
-
-## Pulse from energy
+Result:
 
 ```text
-Pulse = Energy × Meter Constant / Multiplier
+PASS if abs(Error %) <= Tolerance %
+FAIL if abs(Error %) > Tolerance %
 ```
+
+Tolerance selection is a helper. Official pass/fail must follow the approved SOP.
 
 ## Maximum Demand
 
 ```text
-Energy during interval = Pulse Count / Meter Constant × Multiplier
-MD = Energy during interval / (Interval Minutes / 60)
+Energy kWh = Pulse / imp_per_kWh × Effective Multiplier
+MD kW = Energy kWh / (Interval minutes / 60)
 ```
 
-## Accuracy Test: Register Comparison
-
-```text
-Meter Difference = Meter End Reading - Meter Start Reading
-Error % = ((Meter Difference - Reference Energy) / Reference Energy) × 100
-```
-
-Validation:
-
-```text
-Reference Energy > 0
-End Reading > Start Reading
-Tolerance > 0
-```
-
-## Accuracy Test: Pulse Output Test
-
-```text
-Meter Energy = Pulse Count / Meter Constant × Multiplier
-Error % = ((Meter Energy - Reference Energy) / Reference Energy) × 100
-```
-
-Validation:
-
-```text
-Pulse Count > 0
-Meter Constant > 0
-Multiplier > 0
-Reference Energy > 0
-Tolerance > 0
-```
-
-## Common mistakes
-
-- Do not double-apply multiplier.
-- Do not mix primary-side and secondary-side values without conversion.
-- Do not use OCR result as CT/VT verification.
-- Verify CT secondary and VT secondary against site records.
-
-
-## Reading Basis
-
-Primary / Billing basis means the calculation applies CT/VT multiplier to convert meter-side pulse or raw values into actual billed energy.
-
-Secondary / Raw basis means the entered value is already treated as meter-side/raw energy and no CT/VT multiplier is applied unless the module explicitly asks for normalization.
-
-Use Primary / Billing for most CT/VT pulse-to-energy field calculations when the pulse constant is the meter nameplate constant. Use Secondary / Raw only when comparing raw meter-side quantities.
+This is calculated interval demand from pulse count, not a replacement for official registered MD unless validated.

@@ -1,23 +1,26 @@
-# GitHub Pages Deployment
+# Deployment
 
-This app is static. It does not need Node.js or a build command.
+## GitHub Pages with Actions
 
-## Steps
+This project includes `.github/workflows/deploy-pages.yml`.
 
-1. Copy all files to the root of your GitHub repository.
-2. Commit and push to `main`.
-3. Open GitHub repository settings.
-4. Go to `Pages`.
-5. Select `GitHub Actions` as source.
-6. Wait for the workflow `Deploy static app to GitHub Pages` to complete.
+Steps:
 
-## Updating cache
+1. Push repository to GitHub.
+2. Open repository **Settings → Pages**.
+3. Under **Build and deployment**, choose **GitHub Actions**.
+4. Push to `main` to deploy.
 
-When releasing a new version, update these values:
+## GitHub Pages from branch
 
-- `APP.version` in `js/app.js`
-- `APP_VERSION` in `sw.js`
-- Version in `README.md`
-- Version in `CHANGELOG.md`
+This app is also static-hosting ready:
 
-A new service worker cache name forces browsers to refresh cached files.
+- Source: Deploy from a branch
+- Branch: `main`
+- Folder: `/root`
+
+No build command is required.
+
+## PWA notes
+
+The service worker caches same-origin app shell files only. OCR library is loaded from CDN only when OCR is used, so first OCR run requires internet unless you vendor Tesseract locally and update `js/app.js`.
