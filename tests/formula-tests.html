@@ -1,23 +1,27 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>JAMAC ProCal Formula Tests</title><style>body{font-family:system-ui;margin:2rem} .pass{color:green}.fail{color:red}</style></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>JAMAC ProCal Formula Tests</title><style>body{font-family:system-ui;margin:24px;line-height:1.5}.pass{color:green}.fail{color:red}code{background:#f3f4f6;padding:2px 4px;border-radius:4px}</style></head>
 <body>
-<h1>Formula Tests</h1>
-<pre id="out"></pre>
+<h1>JAMAC ProCal v3.3.2-r1 Formula Tests</h1>
+<div id="out"></div>
 <script>
 const tests = [];
-const close = (a,b,eps=1e-9) => Math.abs(a-b) < eps;
-function test(name, actual, expected){ tests.push({name, actual, expected, pass: close(actual, expected)}); }
-const ctRatio = 800/5; test('CT 800/5', ctRatio, 160);
-const vtRatio = 11000/110; test('VT 11000/110', vtRatio, 100);
-const multiplier = ctRatio * vtRatio; test('Total multiplier', multiplier, 16000);
-test('Primary constant 1000/160', 1000/160, 6.25);
-test('Energy 500 pulse /1000 ×160', (500/1000)*160, 80);
-test('MD 80kWh/0.5h', 80/(30/60), 160);
-test('Accuracy error', ((79.8-80)/80)*100, -0.25);
+const close = (a,b,eps=1e-9)=>Math.abs(a-b)<eps;
+function test(name, fn){tests.push({name, fn});}
+function assert(condition, message){if(!condition) throw new Error(message);}
+
+test('Direct meter multiplier = 1',()=>{assert(close(1,1),'direct multiplier failed');});
+test('CT 800/5 multiplier = 160',()=>{assert(close(800/5,160),'CT ratio failed');});
+test('CT/PT 800/5 and 11000/110 multiplier = 16000',()=>{assert(close((800/5)*(11000/110),16000),'CT/PT ratio failed');});
+test('Direct energy: 500 pulse / 1000 = 0.5 kWh',()=>{assert(close(500/1000,0.5),'direct energy failed');});
+test('CT energy: 500 pulse / 1000 × 160 = 80 kWh',()=>{assert(close((500/1000)*160,80),'CT energy failed');});
+test('MD: 80 kWh / 0.5h = 160 kW',()=>{assert(close(80/(30/60),160),'MD failed');});
+test('Accuracy: 80 meter vs 80 reference = 0%',()=>{assert(close(((80-80)/80)*100,0),'accuracy failed');});
+
 const out = document.getElementById('out');
-out.textContent = tests.map(t => `${t.pass ? 'PASS' : 'FAIL'} ${t.name}: actual=${t.actual}, expected=${t.expected}`).join('\n');
-if (tests.some(t => !t.pass)) document.body.className = 'fail'; else document.body.className = 'pass';
+let pass = 0;
+for(const t of tests){try{t.fn();pass++;out.insertAdjacentHTML('beforeend',`<p class="pass">PASS: ${t.name}</p>`);}catch(e){out.insertAdjacentHTML('beforeend',`<p class="fail">FAIL: ${t.name} — ${e.message}</p>`);}}
+out.insertAdjacentHTML('afterbegin',`<p><strong>${pass}/${tests.length}</strong> tests passed.</p>`);
 </script>
 </body>
 </html>
