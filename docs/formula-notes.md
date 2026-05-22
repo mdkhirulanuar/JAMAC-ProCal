@@ -1,67 +1,45 @@
 # Formula Notes
 
-## CT/VT Multiplier
+## Meter connection type
+
+### Direct Meter
+
+```text
+Multiplier = 1
+Energy = Pulse / Meter Constant
+```
+
+### CT Operated Meter
+
+```text
+CT Ratio = CT Primary / CT Secondary
+Multiplier = CT Ratio
+Energy = Pulse / Meter Constant × Multiplier
+```
+
+### CT/PT Operated Meter
 
 ```text
 CT Ratio = CT Primary / CT Secondary
 VT Ratio = VT Primary / VT Secondary
-Total Multiplier = CT Ratio × VT Ratio
+Multiplier = CT Ratio × VT Ratio
+Energy = Pulse / Meter Constant × Multiplier
 ```
 
-## Meter Constant
+## Register basis
+
+Primary/billing register readings normally already include multiplier. Do not apply CT/VT multiplier again.
+
+Raw/secondary pulse readings normally use the nameplate meter constant and need the multiplier unless the value has already been converted.
+
+## MWh handling
+
+The app internally converts MWh to kWh base for calculation. Meter constant remains in `imp/kWh` unless the meter nameplate explicitly states otherwise.
+
+## Accuracy error
 
 ```text
-Primary-side equivalent active constant = Nameplate imp/kWh / Total Multiplier
-Primary-side equivalent reactive constant = Nameplate imp/kvarh / Total Multiplier
+Error % = ((Meter Energy - Reference Energy) / Reference Energy) × 100
 ```
 
-Use nameplate meter constant unless your SOP states otherwise.
-
-## Pulse to Energy
-
-```text
-Energy = Pulse Count / Meter Constant × Effective Multiplier
-```
-
-Effective multiplier:
-
-- Raw meter pulse/nameplate constant: apply CT/VT multiplier.
-- Already primary/billing value: use multiplier = 1.
-
-## Energy to Pulse
-
-```text
-Pulse = Energy(kWh base) × Meter Constant / Effective Multiplier
-```
-
-MWh is converted internally:
-
-```text
-1 MWh = 1000 kWh
-```
-
-Meter constant remains `imp/kWh` unless the reactive unit is selected, where it is `imp/kvarh`.
-
-## Accuracy Error
-
-```text
-Error % = (Meter Energy - Reference Energy) / Reference Energy × 100
-```
-
-Result:
-
-```text
-PASS if abs(Error %) <= Tolerance %
-FAIL if abs(Error %) > Tolerance %
-```
-
-Tolerance selection is a helper. Official pass/fail must follow the approved SOP.
-
-## Maximum Demand
-
-```text
-Energy kWh = Pulse / imp_per_kWh × Effective Multiplier
-MD kW = Energy kWh / (Interval minutes / 60)
-```
-
-This is calculated interval demand from pulse count, not a replacement for official registered MD unless validated.
+Pass/fail tolerance must follow official SOP or regulator procedure.

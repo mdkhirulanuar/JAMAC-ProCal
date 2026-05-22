@@ -1,26 +1,17 @@
 # Deployment
 
-## GitHub Pages with Actions
+Recommended deployment target: GitHub Pages with GitHub Actions.
 
-This project includes `.github/workflows/deploy-pages.yml`.
+## Steps
 
-Steps:
+1. Copy all replacement files to the repository root.
+2. Commit and push to `main`.
+3. Go to `Settings → Pages`.
+4. Select `Source: GitHub Actions`.
+5. Wait for the `Deploy JAMAC ProCal to GitHub Pages` workflow to complete.
 
-1. Push repository to GitHub.
-2. Open repository **Settings → Pages**.
-3. Under **Build and deployment**, choose **GitHub Actions**.
-4. Push to `main` to deploy.
+## Notes
 
-## GitHub Pages from branch
-
-This app is also static-hosting ready:
-
-- Source: Deploy from a branch
-- Branch: `main`
-- Folder: `/root`
-
-No build command is required.
-
-## PWA notes
-
-The service worker caches same-origin app shell files only. OCR library is loaded from CDN only when OCR is used, so first OCR run requires internet unless you vendor Tesseract locally and update `js/app.js`.
+- This app is static and does not need npm, Vite, or build tools.
+- Service worker cache is versioned as `jamac-procal-v3.3.2-r1-cache-1`.
+- After deployment, refresh twice if the browser still serves an older service-worker cache.
