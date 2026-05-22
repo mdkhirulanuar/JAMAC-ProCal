@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>JAMAC ProCal Formula Tests</title><style>body{font-family:system-ui;margin:2rem} .pass{color:green}.fail{color:red}</style></head>
+<body>
+<h1>Formula Tests</h1>
+<pre id="out"></pre>
+<script>
+const tests = [];
+const close = (a,b,eps=1e-9) => Math.abs(a-b) < eps;
+function test(name, actual, expected){ tests.push({name, actual, expected, pass: close(actual, expected)}); }
+const ctRatio = 800/5; test('CT 800/5', ctRatio, 160);
+const vtRatio = 11000/110; test('VT 11000/110', vtRatio, 100);
+const multiplier = ctRatio * vtRatio; test('Total multiplier', multiplier, 16000);
+test('Primary constant 1000/160', 1000/160, 6.25);
+test('Energy 500 pulse /1000 ×160', (500/1000)*160, 80);
+test('MD 80kWh/0.5h', 80/(30/60), 160);
+test('Accuracy error', ((79.8-80)/80)*100, -0.25);
+const out = document.getElementById('out');
+out.textContent = tests.map(t => `${t.pass ? 'PASS' : 'FAIL'} ${t.name}: actual=${t.actual}, expected=${t.expected}`).join('\n');
+if (tests.some(t => !t.pass)) document.body.className = 'fail'; else document.body.className = 'pass';
+</script>
+</body>
+</html>
